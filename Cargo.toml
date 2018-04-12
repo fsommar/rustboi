@@ -1,0 +1,6 @@
+[package]
+name = "rustboi"
+version = "0.1.0"
+authors = ["Fredrik Sommar <fred.sommar@gmail.com>"]
+
+[dependencies]
