@@ -1,10 +1,11 @@
 use std::{self, ops::{Deref, DerefMut}};
 
+#[cfg(test)]
 use super::flag;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct Register {
+pub(crate) struct Register {
     af: RegisterPair,
     bc: RegisterPair,
     de: RegisterPair,
@@ -15,26 +16,26 @@ pub(super) struct Register {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct RegisterPair {
+pub(crate) struct RegisterPair {
     lo: u8,
     hi: u8,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct RegisterF {
+pub(crate) struct RegisterF {
     pub(super) f: u8,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct StackPointer {
+pub(crate) struct StackPointer {
     sp: u16,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct ProgramCounter {
+pub(crate) struct ProgramCounter {
     pc: u16
 }
 
@@ -42,7 +43,7 @@ impl Deref for RegisterPair {
     type Target = u16;
 
     fn deref(&self) -> &u16 {
-        self.as_u16()
+        &self.as_u16()
     }
 }
 
@@ -52,53 +53,99 @@ impl DerefMut for RegisterPair {
     }
 }
 
-impl Register {
-    pub fn a(&mut self) -> &mut u8 {
-        self.af.hi_mut()
+impl Deref for ProgramCounter {
+    type Target = u16;
+
+    fn deref(&self) -> &u16 {
+        &self.pc
     }
-    
-    pub fn f(&mut self) -> &mut RegisterF {
+}
+
+impl DerefMut for ProgramCounter {
+    fn deref_mut(&mut self) -> &mut u16 {
+        &mut self.pc
+    }
+}
+
+pub trait Register8 {
+    type Output;
+    fn a(self) -> Self::Output;
+    fn b(self) -> Self::Output;
+    fn c(self) -> Self::Output;
+    fn d(self) -> Self::Output;
+    fn e(self) -> Self::Output;
+    fn h(self) -> Self::Output;
+    fn l(self) -> Self::Output;
+}
+
+impl<'a> Register8 for &'a Register {
+    type Output = u8;
+    fn a(self) -> Self::Output { self.af.hi() }
+    fn b(self) -> Self::Output { self.bc.hi() }
+    fn c(self) -> Self::Output { self.bc.lo() }
+    fn d(self) -> Self::Output { self.de.hi() }
+    fn e(self) -> Self::Output { self.de.lo() }
+    fn h(self) -> Self::Output { self.hl.hi() }
+    fn l(self) -> Self::Output { self.hl.lo() }
+}
+
+impl<'a> Register8 for &'a mut Register {
+    type Output = &'a mut u8;
+    fn a(self) -> Self::Output { self.af.hi_mut() }
+    fn b(self) -> Self::Output { self.bc.hi_mut() }
+    fn c(self) -> Self::Output { self.bc.lo_mut() }
+    fn d(self) -> Self::Output { self.de.hi_mut() }
+    fn e(self) -> Self::Output { self.de.lo_mut() }
+    fn h(self) -> Self::Output { self.hl.hi_mut() }
+    fn l(self) -> Self::Output { self.hl.lo_mut() }
+}
+
+pub trait Register16 {
+    type Output;
+    fn af(self) -> Self::Output;
+    fn bc(self) -> Self::Output;
+    fn de(self) -> Self::Output;
+    fn hl(self) -> Self::Output;
+}
+
+impl<'a> Register16 for &'a Register {
+    type Output = u16;
+    fn af(self) -> Self::Output { self.af.as_u16() }
+    fn bc(self) -> Self::Output { self.bc.as_u16() }
+    fn de(self) -> Self::Output { self.de.as_u16() }
+    fn hl(self) -> Self::Output { self.hl.as_u16() }
+}
+
+impl<'a> Register16 for &'a mut Register {
+    type Output = &'a mut u16;
+    fn af(self) -> Self::Output { self.af.as_u16_mut() }
+    fn bc(self) -> Self::Output { self.bc.as_u16_mut() }
+    fn de(self) -> Self::Output { self.de.as_u16_mut() }
+    fn hl(self) -> Self::Output { self.hl.as_u16_mut() }
+}
+
+pub trait RegisterPc {
+    type Output;
+    fn pc(self) -> Self::Output;
+}
+
+impl<'a> RegisterPc for &'a Register {
+    type Output = u16;
+    fn pc(self) -> Self::Output { self.pc.pc }
+}
+
+impl<'a> RegisterPc for &'a mut Register {
+    type Output = &'a mut u16;
+    fn pc(self) -> Self::Output { &mut self.pc.pc }
+}
+
+impl Register {
+    pub(crate) fn f(&mut self) -> &mut RegisterF {
         unsafe { std::mem::transmute(self.af.lo_mut()) }
     }
 
-    pub fn af(&mut self) -> &mut RegisterPair {
-        &mut self.af
-    }
-
-    pub fn b(&mut self) -> &mut u8 {
-        self.bc.hi_mut()
-    }
-    
-    pub fn c(&mut self) -> &mut u8 {
-        self.bc.lo_mut()
-    }
-
-    pub fn bc(&mut self) -> &mut RegisterPair {
-        &mut self.bc
-    }
-
-    pub fn d(&mut self) -> &mut u8 {
-        self.de.hi_mut()
-    }
-    
-    pub fn e(&mut self) -> &mut u8 {
-        self.de.lo_mut()
-    }
-
-    pub fn de(&mut self) -> &mut RegisterPair {
-        &mut self.de
-    }
-
-    pub fn h(&mut self) -> &mut u8 {
-        self.hl.hi_mut()
-    }
-    
-    pub fn l(&mut self) -> &mut u8 {
-        self.hl.lo_mut()
-    }
-
-    pub fn hl(&mut self) -> &mut RegisterPair {
-        &mut self.hl
+    pub(crate) fn pc(&mut self) -> &mut ProgramCounter {
+        &mut self.pc
     }
 }
 
@@ -119,11 +166,11 @@ impl RegisterPair {
         self.hi
     }
 
-    fn as_u16(&self) -> &u16 {
-        unsafe { std::mem::transmute::<&Self, &u16>(self) }
+    pub(crate) fn as_u16(&self) -> u16 {
+        *unsafe { std::mem::transmute::<&Self, &u16>(self) }
     }
 
-    fn as_u16_mut(&mut self) -> &mut u16 {
+    pub(crate) fn as_u16_mut(&mut self) -> &mut u16 {
         unsafe { std::mem::transmute::<&mut Self, &mut u16>(self) }
     }
 }
@@ -131,7 +178,7 @@ impl RegisterPair {
 #[test]
 fn test_as_u16() {
     let rr = RegisterPair { lo: 0b0000_0111_u8, hi: 0b1111_0000_u8 };
-    assert_eq!(0b1111_0000_0000_0111_u16, *rr.as_u16());
+    assert_eq!(0b1111_0000_0000_0111_u16, rr.as_u16());
 }
 
 #[test]

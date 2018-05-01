@@ -10,7 +10,7 @@ use std::{self,
 /// with flag Z.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub(super) struct Value<Flag> {
+pub(crate) struct Value<Flag> {
     is: RegisterF,
     phantom: PhantomData<Flag>,
 }
@@ -19,7 +19,7 @@ pub(super) struct Value<Flag> {
 ///
 /// Each flag has its own offset in the 8 bit register F, and this trait gives meaning to flag
 /// structs without increasing their memory usage -- they're still zero sized.
-pub(super) trait Flag {
+pub(crate) trait Flag {
     fn offset() -> u8;
 }
 
