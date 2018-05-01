@@ -2,6 +2,7 @@ use std::{self, ops::{Deref, DerefMut}};
 
 use super::flag;
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(super) struct Register {
     af: RegisterPair,
@@ -12,22 +13,26 @@ pub(super) struct Register {
     pc: ProgramCounter,
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(super) struct RegisterPair {
     lo: u8,
     hi: u8,
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(super) struct RegisterF {
     pub(super) f: u8,
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(super) struct StackPointer {
     sp: u16,
 }
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(super) struct ProgramCounter {
     pc: u16
