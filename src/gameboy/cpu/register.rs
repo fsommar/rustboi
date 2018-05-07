@@ -39,20 +39,6 @@ pub(crate) struct ProgramCounter {
     pc: u16
 }
 
-impl Deref for RegisterPair {
-    type Target = u16;
-
-    fn deref(&self) -> &u16 {
-        &self.as_u16()
-    }
-}
-
-impl DerefMut for RegisterPair {
-    fn deref_mut(&mut self) -> &mut u16 {
-        self.as_u16_mut()
-    }
-}
-
 impl Deref for ProgramCounter {
     type Target = u16;
 
@@ -184,7 +170,7 @@ fn test_as_u16() {
 #[test]
 fn test_as_u16_mut() {
     let mut rr = RegisterPair { lo: 0b0000_0111_u8, hi: 0b1111_0000_u8 };
-    *rr = 0b0000_0000_0000_1111;
+    *rr.as_u16_mut() = 0b0000_0000_0000_1111;
     assert_eq!(RegisterPair { lo: 0b0000_1111, hi: 0 }, rr);
 }
 
