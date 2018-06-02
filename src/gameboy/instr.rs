@@ -23,14 +23,30 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         // it's not particularly nice to special case load and increment/decrement HL.
         // so for now, this has to suffice.
         // then it could read HL with side effects. I'm not too fond of that idea either,
-        0x22 => { let r = gameboy.load(AddrOf(R16::HL), R8::A); gameboy.inc_hl(); r },
+        0x22 => {
+            let r = gameboy.load(AddrOf(R16::HL), R8::A);
+            gameboy.inc_hl();
+            r
+        }
         0x26 => gameboy.load(R8::H, Immediate8),
-        0x2a => { let r = gameboy.load(R8::A, AddrOf(R16::HL)); gameboy.inc_hl(); r },
+        0x2a => {
+            let r = gameboy.load(R8::A, AddrOf(R16::HL));
+            gameboy.inc_hl();
+            r
+        }
         0x2e => gameboy.load(R8::L, Immediate8),
         0x31 => gameboy.load(R16::SP, Immediate16),
-        0x32 => { let r = gameboy.load(AddrOf(R16::HL), R8::A); gameboy.dec_hl(); r },
+        0x32 => {
+            let r = gameboy.load(AddrOf(R16::HL), R8::A);
+            gameboy.dec_hl();
+            r
+        }
         0x36 => gameboy.load(AddrOf(R16::HL), Immediate8),
-        0x3a => { let r = gameboy.load(R8::A, AddrOf(R16::HL)); gameboy.dec_hl(); r },
+        0x3a => {
+            let r = gameboy.load(R8::A, AddrOf(R16::HL));
+            gameboy.dec_hl();
+            r
+        }
         0x3e => gameboy.load(R8::A, Immediate8),
         0x40 => gameboy.load(R8::B, R8::B),
         0x41 => gameboy.load(R8::B, R8::C),
@@ -126,14 +142,14 @@ impl AsAddress for u8 {
     }
 }
 
-impl<A: AsAddress, R: mem::Read<Out=A>> mem::Read for AddrOf<R> {
+impl<A: AsAddress, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
     type Out = u8;
     fn read(&self, gb: &GameBoy) -> Self::Out {
         gb.mmu.read_u8(self.0.read(gb).as_address())
     }
 }
 
-impl<A: AsAddress, R: mem::Read<Out=A>> mem::Write for AddrOf<R> {
+impl<A: AsAddress, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
     type In = u8;
     fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
         let addr = self.0.read(gb).as_address();
@@ -236,7 +252,25 @@ impl mem::Write for R16 {
 
 trait Instructions {
     type Output;
-    fn load<R: mem::Read<Out = V>, W: mem::Write<In = V>, V>(&mut self, W, R) -> Self::Output;
+    fn load<R, W, V>(&mut self, W, R) -> Self::Output
+    where
+        R: mem::Read<Out = V>,
+        W: mem::Write<In = V>;
+
+    fn binary_op<LHS, RHS, Op>(&mut self, LHS, RHS, Op) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+        Op: Fn(u8, u8, RegisterF) -> (u8, RegisterF);
+
+    fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+    {
+        self.binary_op(lhs, rhs, |x, y, rf| (x + y, rf))
+    }
+
     fn nop(&mut self) -> Self::Output;
     fn halt(&mut self) -> Self::Output;
     fn inc_hl(&mut self);
@@ -253,6 +287,15 @@ impl Instructions for GameBoy {
     ) -> Self::Output {
         let value: V = from.read(self);
         to.write(self, value)?;
+        Ok(1)
+    }
+
+    fn binary_op<LHS, RHS, Op>(&mut self, lhs: LHS, rhs: RHS, op: Op) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+        Op: Fn(u8, u8, RegisterF) -> (u8, RegisterF),
+    {
         Ok(1)
     }
 
