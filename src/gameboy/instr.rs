@@ -25,26 +25,26 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         // then it could read HL with side effects. I'm not too fond of that idea either,
         0x22 => {
             let r = gameboy.load(AddrOf(R16::HL), R8::A);
-            gameboy.inc_hl();
+            let _ = gameboy.inc_16(R16::HL)?;
             r
         }
         0x26 => gameboy.load(R8::H, Immediate8),
         0x2a => {
             let r = gameboy.load(R8::A, AddrOf(R16::HL));
-            gameboy.inc_hl();
+            let _ = gameboy.inc_16(R16::HL)?;
             r
         }
         0x2e => gameboy.load(R8::L, Immediate8),
         0x31 => gameboy.load(R16::SP, Immediate16),
         0x32 => {
             let r = gameboy.load(AddrOf(R16::HL), R8::A);
-            gameboy.dec_hl();
+            let _ = gameboy.dec_16(R16::HL)?;
             r
         }
         0x36 => gameboy.load(AddrOf(R16::HL), Immediate8),
         0x3a => {
             let r = gameboy.load(R8::A, AddrOf(R16::HL));
-            gameboy.dec_hl();
+            let _ = gameboy.dec_16(R16::HL)?;
             r
         }
         0x3e => gameboy.load(R8::A, Immediate8),
@@ -269,6 +269,11 @@ trait Instructions {
         Operand: mem::Read<Out = u8> + mem::Write<In = u8>,
         F: FnOnce(u8, RegisterF) -> (u8, RegisterF);
 
+    fn unary_op_16<Operand, F>(&mut self, Operand, F) -> Self::Output
+    where
+        Operand: mem::Read<Out = u16> + mem::Write<In = u16>,
+        F: FnOnce(u16) -> u16;
+
     fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
     where
         LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
@@ -277,10 +282,44 @@ trait Instructions {
         self.binary_op(lhs, rhs, |x, y, rf| (x + y, rf))
     }
 
+    fn sub<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+    {
+        self.binary_op(lhs, rhs, |x, y, rf| (x - y, rf))
+    }
+
+    fn inc<T>(&mut self, operand: T) -> Self::Output
+    where
+        T: mem::Read<Out = u8> + mem::Write<In = u8>,
+    {
+        self.unary_op(operand, |x, rf| (x + 1, rf))
+    }
+
+    fn inc_16<T>(&mut self, operand: T) -> Self::Output
+    where
+        T: mem::Read<Out = u16> + mem::Write<In = u16>,
+    {
+        self.unary_op_16(operand, |x| x + 1)
+    }
+
+    fn dec<T>(&mut self, operand: T) -> Self::Output
+    where
+        T: mem::Read<Out = u8> + mem::Write<In = u8>,
+    {
+        self.unary_op(operand, |x, rf| (x - 1, rf))
+    }
+
+    fn dec_16<T>(&mut self, operand: T) -> Self::Output
+    where
+        T: mem::Read<Out = u16> + mem::Write<In = u16>,
+    {
+        self.unary_op_16(operand, |x| x - 1)
+    }
+
     fn nop(&mut self) -> Self::Output;
     fn halt(&mut self) -> Self::Output;
-    fn inc_hl(&mut self);
-    fn dec_hl(&mut self);
 }
 
 impl Instructions for GameBoy {
@@ -322,19 +361,22 @@ impl Instructions for GameBoy {
         Ok(1)
     }
 
+    fn unary_op_16<Operand, F>(&mut self, operand: Operand, func: F) -> Self::Output
+    where
+        Operand: mem::Read<Out = u16> + mem::Write<In = u16>,
+        F: FnOnce(u16) -> u16,
+    {
+        let value = operand.read(self);
+        let result = func(value);
+        operand.write(self, result)?;
+        Ok(1)
+    }
+
     fn nop(&mut self) -> Self::Output {
         Ok(1)
     }
 
     fn halt(&mut self) -> Self::Output {
         unimplemented!()
-    }
-
-    fn inc_hl(&mut self) {
-        *(&mut self.cpu.register.hl()) += 1;
-    }
-
-    fn dec_hl(&mut self) {
-        *(&mut self.cpu.register.hl()) -= 1;
     }
 }
