@@ -20,7 +20,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x1e => gameboy.load(R8::E, Immediate8),
         0x21 => gameboy.load(R16::HL, Immediate16),
         // If the `Read` argument is changed to allow mutation of the underlying data,
-        // It's not particularly nice to special case load and increment/decrement HL.
+        // it's not particularly nice to special case load and increment/decrement HL.
         // so for now, this has to suffice.
         // then it could read HL with side effects. I'm not too fond of that idea either,
         0x22 => { let r = gameboy.load(AddrOf(R16::HL), R8::A); gameboy.inc_hl(); r },
@@ -40,7 +40,6 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x45 => gameboy.load(R8::B, R8::L),
         0x46 => gameboy.load(R8::B, AddrOf(R16::HL)),
         0x47 => gameboy.load(R8::B, R8::A),
-        0x47 => gameboy.load(R8::C, R8::A),
         0x48 => gameboy.load(R8::C, R8::B),
         0x49 => gameboy.load(R8::C, R8::C),
         0x4a => gameboy.load(R8::C, R8::D),
@@ -48,6 +47,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x4c => gameboy.load(R8::C, R8::H),
         0x4d => gameboy.load(R8::C, R8::L),
         0x4e => gameboy.load(R8::C, AddrOf(R16::HL)),
+        0x4f => gameboy.load(R8::C, R8::A),
         0x50 => gameboy.load(R8::D, R8::B),
         0x51 => gameboy.load(R8::D, R8::C),
         0x52 => gameboy.load(R8::D, R8::D),
@@ -153,14 +153,6 @@ impl mem::Read for Immediate16 {
     type Out = u16;
     fn read(&self, gb: &GameBoy) -> Self::Out {
         gb.mmu.read_u16(gb.cpu.register.pc())
-    }
-}
-
-impl mem::Read for Address16 {
-    type Out = u8;
-    fn read(&self, gb: &GameBoy) -> Self::Out {
-        let addr = gb.mmu.read_u16(gb.cpu.register.pc());
-        gb.mmu.read_u8(addr)
     }
 }
 
