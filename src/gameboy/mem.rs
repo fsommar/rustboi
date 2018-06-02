@@ -60,3 +60,13 @@ fn test_write_u16() {
     assert_eq!(0x12, mmu.read_u8(0));
     assert_eq!(0x34, mmu.read_u8(1));
 }
+
+pub(crate) trait Read {
+    type Out;
+    fn read(&self, &super::GameBoy) -> Self::Out;
+}
+
+pub(crate) trait Write {
+    type In;
+    fn write(&self, &mut super::GameBoy, value: Self::In) -> Result<(), String>;
+}
