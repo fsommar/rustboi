@@ -92,6 +92,7 @@ pub trait Register16 {
     fn bc(self) -> Self::Output;
     fn de(self) -> Self::Output;
     fn hl(self) -> Self::Output;
+    fn sp(self) -> Self::Output;
 }
 
 impl<'a> Register16 for &'a Register {
@@ -100,6 +101,7 @@ impl<'a> Register16 for &'a Register {
     fn bc(self) -> Self::Output { self.bc.as_u16() }
     fn de(self) -> Self::Output { self.de.as_u16() }
     fn hl(self) -> Self::Output { self.hl.as_u16() }
+    fn sp(self) -> Self::Output { self.sp.sp }
 }
 
 impl<'a> Register16 for &'a mut Register {
@@ -108,6 +110,7 @@ impl<'a> Register16 for &'a mut Register {
     fn bc(self) -> Self::Output { self.bc.as_u16_mut() }
     fn de(self) -> Self::Output { self.de.as_u16_mut() }
     fn hl(self) -> Self::Output { self.hl.as_u16_mut() }
+    fn sp(self) -> Self::Output { &mut self.sp.sp }
 }
 
 pub trait RegisterPc {
