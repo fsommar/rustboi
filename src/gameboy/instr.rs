@@ -252,16 +252,22 @@ impl mem::Write for R16 {
 
 trait Instructions {
     type Output;
-    fn load<R, W, V>(&mut self, W, R) -> Self::Output
-    where
-        R: mem::Read<Out = V>,
-        W: mem::Write<In = V>;
 
-    fn binary_op<LHS, RHS, Op>(&mut self, LHS, RHS, Op) -> Self::Output
+    fn load<W, R, V>(&mut self, W, R) -> Self::Output
+    where
+        W: mem::Write<In = V>,
+        R: mem::Read<Out = V>;
+
+    fn binary_op<LHS, RHS, F>(&mut self, LHS, RHS, F) -> Self::Output
     where
         LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
         RHS: mem::Read<Out = u8>,
-        Op: Fn(u8, u8, RegisterF) -> (u8, RegisterF);
+        F: FnOnce(u8, u8, RegisterF) -> (u8, RegisterF);
+
+    fn unary_op<Operand, F>(&mut self, Operand, F) -> Self::Output
+    where
+        Operand: mem::Read<Out = u8> + mem::Write<In = u8>,
+        F: FnOnce(u8, RegisterF) -> (u8, RegisterF);
 
     fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
     where
@@ -280,22 +286,39 @@ trait Instructions {
 impl Instructions for GameBoy {
     type Output = Result<u8, String>;
 
-    fn load<R: mem::Read<Out = V>, W: mem::Write<In = V>, V>(
-        &mut self,
-        to: W,
-        from: R,
-    ) -> Self::Output {
+    fn load<W, R, V>(&mut self, to: W, from: R) -> Self::Output
+    where
+        W: mem::Write<In = V>,
+        R: mem::Read<Out = V>,
+    {
         let value: V = from.read(self);
         to.write(self, value)?;
         Ok(1)
     }
 
-    fn binary_op<LHS, RHS, Op>(&mut self, lhs: LHS, rhs: RHS, op: Op) -> Self::Output
+    fn binary_op<LHS, RHS, F>(&mut self, lhs: LHS, rhs: RHS, func: F) -> Self::Output
     where
         LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
         RHS: mem::Read<Out = u8>,
-        Op: Fn(u8, u8, RegisterF) -> (u8, RegisterF),
+        F: FnOnce(u8, u8, RegisterF) -> (u8, RegisterF),
     {
+        let lhs_ = lhs.read(self);
+        let rhs_ = rhs.read(self);
+        let (result, f) = func(lhs_, rhs_, *(self.cpu.register.f()));
+        *(self.cpu.register.f()) = f;
+        lhs.write(self, result)?;
+        Ok(1)
+    }
+
+    fn unary_op<Operand, F>(&mut self, operand: Operand, func: F) -> Self::Output
+    where
+        Operand: mem::Read<Out = u8> + mem::Write<In = u8>,
+        F: FnOnce(u8, RegisterF) -> (u8, RegisterF),
+    {
+        let value = operand.read(self);
+        let (result, f) = func(value, *(self.cpu.register.f()));
+        *(self.cpu.register.f()) = f;
+        operand.write(self, result)?;
         Ok(1)
     }
 
