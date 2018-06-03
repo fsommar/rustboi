@@ -1,7 +1,6 @@
 extern crate num_traits;
 
 use super::*;
-use std;
 
 pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
     match opcode {
@@ -16,6 +15,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         // so TBD if it should be special cased or if there are other similar instructions
         // but not necessarily LD -- e.g. PUSH or POP?
         // 0x08 => gameboy.load(AddrOf(Immediate16), R16::SP),
+        0x09 => gameboy.add(R16::HL, R16::BC, Carry::Without),
         0x0A => gameboy.load(R8::A, AddrOf(R16::BC)),
         0x0B => gameboy.dec(R16::BC),
         0x0C => gameboy.inc(R8::C),
@@ -29,6 +29,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x15 => gameboy.dec(R8::D),
         0x16 => gameboy.load(R8::D, Immediate8),
         0x18 => gameboy.jump(Flags::Always, Immediate8),
+        0x19 => gameboy.add(R16::HL, R16::DE, Carry::Without),
         0x1A => gameboy.load(R8::A, AddrOf(R16::DE)),
         0x1B => gameboy.dec(R16::DE),
         0x1C => gameboy.inc(R8::C),
@@ -42,6 +43,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x25 => gameboy.dec(R8::H),
         0x26 => gameboy.load(R8::H, Immediate8),
         0x28 => gameboy.jump(Flags::Z, Immediate8),
+        0x29 => gameboy.add(R16::HL, R16::HL, Carry::Without),
         0x2A => gameboy.load(R8::A, AddrOf(PostInc(R16::HL))),
         0x2B => gameboy.dec(R16::HL),
         0x2C => gameboy.inc(R8::L),
@@ -55,6 +57,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x35 => gameboy.dec(AddrOf(R16::HL)),
         0x36 => gameboy.load(AddrOf(R16::HL), Immediate8),
         0x38 => gameboy.jump(Flags::C, Immediate8),
+        0x39 => gameboy.add(R16::HL, R16::SP, Carry::Without),
         0x3A => gameboy.load(R8::A, AddrOf(PostDec(R16::HL))),
         0x3B => gameboy.dec(R16::SP),
         0x3C => gameboy.inc(R8::A),
@@ -437,50 +440,56 @@ trait Instructions {
         V: Into<u16>,
         Offset: mem::Read<Out = V>;
 
-    fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
+    fn add<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, rf| (x + y, rf))
     }
 
-    fn sub<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
+    fn sub<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, rf| (x - y, rf))
     }
 
-    fn xor<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    fn xor<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, rf| (x ^ y, rf))
     }
 
-    fn and<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    fn and<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, rf| (x & y, rf))
     }
 
-    fn or<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    fn or<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, rf| (x | y, rf))
     }
 
-    fn cmp<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    fn cmp<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         // Ensure that the result is not written to the LHS
         self.binary_op(NoWrite(lhs), rhs, |x, y, rf| (x - y, rf))
