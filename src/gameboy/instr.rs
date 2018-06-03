@@ -137,6 +137,40 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x7c => gameboy.load(R8::A, R8::H),
         0x7d => gameboy.load(R8::A, R8::L),
         0x7e => gameboy.load(R8::A, AddrOf(R16::HL)),
+
+        0x80 => gameboy.add(R8::A, R8::B, Carry::Without),
+        0x81 => gameboy.add(R8::A, R8::C, Carry::Without),
+        0x82 => gameboy.add(R8::A, R8::D, Carry::Without),
+        0x83 => gameboy.add(R8::A, R8::E, Carry::Without),
+        0x84 => gameboy.add(R8::A, R8::H, Carry::Without),
+        0x85 => gameboy.add(R8::A, R8::L, Carry::Without),
+        0x86 => gameboy.add(R8::A, AddrOf(R16::HL), Carry::Without),
+        0x87 => gameboy.add(R8::A, R8::A, Carry::Without),
+        0x88 => gameboy.add(R8::A, R8::B, Carry::With),
+        0x89 => gameboy.add(R8::A, R8::C, Carry::With),
+        0x8a => gameboy.add(R8::A, R8::D, Carry::With),
+        0x8b => gameboy.add(R8::A, R8::E, Carry::With),
+        0x8c => gameboy.add(R8::A, R8::H, Carry::With),
+        0x8d => gameboy.add(R8::A, R8::L, Carry::With),
+        0x8e => gameboy.add(R8::A, AddrOf(R16::HL), Carry::With),
+        0x8f => gameboy.add(R8::A, R8::A, Carry::With),
+        0x90 => gameboy.sub(R8::A, R8::B, Carry::Without),
+        0x91 => gameboy.sub(R8::A, R8::C, Carry::Without),
+        0x92 => gameboy.sub(R8::A, R8::D, Carry::Without),
+        0x93 => gameboy.sub(R8::A, R8::E, Carry::Without),
+        0x94 => gameboy.sub(R8::A, R8::H, Carry::Without),
+        0x95 => gameboy.sub(R8::A, R8::L, Carry::Without),
+        0x96 => gameboy.sub(R8::A, AddrOf(R16::HL), Carry::Without),
+        0x97 => gameboy.sub(R8::A, R8::A, Carry::Without),
+        0x98 => gameboy.sub(R8::A, R8::B, Carry::With),
+        0x99 => gameboy.sub(R8::A, R8::C, Carry::With),
+        0x9a => gameboy.sub(R8::A, R8::D, Carry::With),
+        0x9b => gameboy.sub(R8::A, R8::E, Carry::With),
+        0x9c => gameboy.sub(R8::A, R8::H, Carry::With),
+        0x9d => gameboy.sub(R8::A, R8::L, Carry::With),
+        0x9e => gameboy.sub(R8::A, AddrOf(R16::HL), Carry::With),
+        0x9f => gameboy.sub(R8::A, R8::A, Carry::With),
+
         0xe0 => gameboy.load(AddrOf(Immediate8), R8::A),
         0xe2 => gameboy.load(AddrOf(R8::C), R8::A),
         0xea => gameboy.load(AddrOf(Immediate16), R8::A),
@@ -275,6 +309,11 @@ impl mem::Write for R16 {
     }
 }
 
+enum Carry {
+    Without,
+    With,
+}
+
 trait Instructions {
     type Output;
 
@@ -299,7 +338,7 @@ trait Instructions {
         Operand: mem::Read<Out = u16> + mem::Write<In = u16>,
         F: FnOnce(u16) -> u16;
 
-    fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
         LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
         RHS: mem::Read<Out = u8>,
@@ -307,7 +346,7 @@ trait Instructions {
         self.binary_op(lhs, rhs, |x, y, rf| (x + y, rf))
     }
 
-    fn sub<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    fn sub<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
         LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
         RHS: mem::Read<Out = u8>,
