@@ -137,7 +137,6 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x7c => gameboy.load(R8::A, R8::H),
         0x7d => gameboy.load(R8::A, R8::L),
         0x7e => gameboy.load(R8::A, AddrOf(R16::HL)),
-
         0x80 => gameboy.add(R8::A, R8::B, Carry::Without),
         0x81 => gameboy.add(R8::A, R8::C, Carry::Without),
         0x82 => gameboy.add(R8::A, R8::D, Carry::Without),
@@ -170,17 +169,58 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x9d => gameboy.sub(R8::A, R8::L, Carry::With),
         0x9e => gameboy.sub(R8::A, AddrOf(R16::HL), Carry::With),
         0x9f => gameboy.sub(R8::A, R8::A, Carry::With),
-
+        0xa0 => gameboy.and(R8::A, R8::B),
+        0xa1 => gameboy.and(R8::A, R8::C),
+        0xa2 => gameboy.and(R8::A, R8::D),
+        0xa3 => gameboy.and(R8::A, R8::E),
+        0xa4 => gameboy.and(R8::A, R8::H),
+        0xa5 => gameboy.and(R8::A, R8::L),
+        0xa6 => gameboy.and(R8::A, AddrOf(R16::HL)),
+        0xa7 => gameboy.and(R8::A, R8::A),
+        0xa8 => gameboy.xor(R8::A, R8::B),
+        0xa9 => gameboy.xor(R8::A, R8::C),
+        0xaa => gameboy.xor(R8::A, R8::D),
+        0xab => gameboy.xor(R8::A, R8::E),
+        0xac => gameboy.xor(R8::A, R8::H),
+        0xad => gameboy.xor(R8::A, R8::L),
+        0xae => gameboy.xor(R8::A, AddrOf(R16::HL)),
+        0xaf => gameboy.xor(R8::A, R8::A),
+        0xb0 => gameboy.or(R8::A, R8::B),
+        0xb1 => gameboy.or(R8::A, R8::C),
+        0xb2 => gameboy.or(R8::A, R8::D),
+        0xb3 => gameboy.or(R8::A, R8::E),
+        0xb4 => gameboy.or(R8::A, R8::H),
+        0xb5 => gameboy.or(R8::A, R8::L),
+        0xb6 => gameboy.or(R8::A, AddrOf(R16::HL)),
+        0xb7 => gameboy.or(R8::A, R8::A),
+        0xb8 => gameboy.cmp(R8::A, R8::B),
+        0xb9 => gameboy.cmp(R8::A, R8::C),
+        0xba => gameboy.cmp(R8::A, R8::D),
+        0xbb => gameboy.cmp(R8::A, R8::E),
+        0xbc => gameboy.cmp(R8::A, R8::H),
+        0xbd => gameboy.cmp(R8::A, R8::L),
+        0xbe => gameboy.cmp(R8::A, AddrOf(R16::HL)),
+        0xbf => gameboy.cmp(R8::A, R8::A),
+        0xc6 => gameboy.add(R8::A, Immediate8, Carry::Without),
+        0xce => gameboy.add(R8::A, Immediate8, Carry::With),
+        0xd6 => gameboy.sub(R8::A, Immediate8, Carry::Without),
+        0xde => gameboy.sub(R8::A, Immediate8, Carry::With),
         0xe0 => gameboy.load(AddrOf(Immediate8), R8::A),
         0xe2 => gameboy.load(AddrOf(R8::C), R8::A),
+        0xe6 => gameboy.and(R8::A, Immediate8),
+        0xee => gameboy.xor(R8::A, Immediate8),
         0xea => gameboy.load(AddrOf(Immediate16), R8::A),
         0xf0 => gameboy.load(R8::A, AddrOf(Immediate8)),
         0xf2 => gameboy.load(R8::A, AddrOf(R8::C)),
+        0xf6 => gameboy.or(R8::A, Immediate8),
         0xfa => gameboy.load(R8::A, AddrOf(Immediate16)),
+        0xfe => gameboy.cmp(R8::A, Immediate8),
         _ => Err(format!("Unable to match opcode {:x}", opcode)),
     }
 }
 
+struct NoWrite<T>(T);
+struct Constant<T>(T);
 struct AddrOf<T>(T);
 struct Immediate8;
 struct Immediate16;
@@ -205,6 +245,28 @@ impl<A: AsAddress, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
     type Out = u8;
     fn read(&self, gb: &GameBoy) -> Self::Out {
         gb.mmu.read_u8(self.0.read(gb).as_address())
+    }
+}
+
+impl<V, T: mem::Write<In=V>> mem::Write for NoWrite<T> {
+    type In = V;
+    fn write(&self, _: &mut GameBoy, _: Self::In) -> Result<(), String> {
+        // NoWrite causes write to be a NOOP.
+        Ok(())
+    }
+}
+
+impl <V, T: mem::Read<Out=V>> mem::Read for NoWrite<T> {
+    type Out = V;
+    fn read(&self, gb: &GameBoy) -> Self::Out {
+        self.0.read(gb)
+    }
+}
+
+impl<T: Copy> mem::Read for Constant<T> {
+    type Out = T;
+    fn read(&self, _: &GameBoy) -> Self::Out {
+        self.0
     }
 }
 
@@ -328,15 +390,11 @@ trait Instructions {
         RHS: mem::Read<Out = u8>,
         F: FnOnce(u8, u8, RegisterF) -> (u8, RegisterF);
 
-    fn unary_op<Operand, F>(&mut self, Operand, F) -> Self::Output
+    fn binary_op_16<LHS, RHS, F>(&mut self, LHS, RHS, F) -> Self::Output
     where
-        Operand: mem::Read<Out = u8> + mem::Write<In = u8>,
-        F: FnOnce(u8, RegisterF) -> (u8, RegisterF);
-
-    fn unary_op_16<Operand, F>(&mut self, Operand, F) -> Self::Output
-    where
-        Operand: mem::Read<Out = u16> + mem::Write<In = u16>,
-        F: FnOnce(u16) -> u16;
+        LHS: mem::Read<Out = u16> + mem::Write<In = u16>,
+        RHS: mem::Read<Out = u16>,
+        F: FnOnce(u16, u16, RegisterF) -> (u16, RegisterF);
 
     fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
@@ -354,32 +412,65 @@ trait Instructions {
         self.binary_op(lhs, rhs, |x, y, rf| (x - y, rf))
     }
 
+    fn xor<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+    {
+        self.binary_op(lhs, rhs, |x, y, rf| (x ^ y, rf))
+    }
+
+    fn and<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+    {
+        self.binary_op(lhs, rhs, |x, y, rf| (x & y, rf))
+    }
+
+    fn or<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+    {
+        self.binary_op(lhs, rhs, |x, y, rf| (x | y, rf))
+    }
+
+    fn cmp<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
+    where
+        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
+        RHS: mem::Read<Out = u8>,
+    {
+        // Ensure that the result is not written to the LHS
+        self.binary_op(NoWrite(lhs), rhs, |x, y, rf| (x - y, rf))
+    }
+
     fn inc<T>(&mut self, operand: T) -> Self::Output
     where
         T: mem::Read<Out = u8> + mem::Write<In = u8>,
     {
-        self.unary_op(operand, |x, rf| (x + 1, rf))
+        self.binary_op(operand, Constant(1), |x, y, rf| (x + y, rf))
     }
 
     fn inc_16<T>(&mut self, operand: T) -> Self::Output
     where
         T: mem::Read<Out = u16> + mem::Write<In = u16>,
     {
-        self.unary_op_16(operand, |x| x + 1)
+        self.binary_op_16(operand, Constant(1), |x, y, rf| (x + y, rf))
     }
 
     fn dec<T>(&mut self, operand: T) -> Self::Output
     where
         T: mem::Read<Out = u8> + mem::Write<In = u8>,
     {
-        self.unary_op(operand, |x, rf| (x - 1, rf))
+        self.binary_op(operand, Constant(1), |x, y, rf| (x - y, rf))
     }
 
     fn dec_16<T>(&mut self, operand: T) -> Self::Output
     where
         T: mem::Read<Out = u16> + mem::Write<In = u16>,
     {
-        self.unary_op_16(operand, |x| x - 1)
+        self.binary_op_16(operand, Constant(1), |x, y, rf| (x - y, rf))
     }
 
     fn nop(&mut self) -> Self::Output;
@@ -414,26 +505,17 @@ impl Instructions for GameBoy {
         Ok(1)
     }
 
-    fn unary_op<Operand, F>(&mut self, operand: Operand, func: F) -> Self::Output
+    fn binary_op_16<LHS, RHS, F>(&mut self, lhs: LHS, rhs: RHS, func: F) -> Self::Output
     where
-        Operand: mem::Read<Out = u8> + mem::Write<In = u8>,
-        F: FnOnce(u8, RegisterF) -> (u8, RegisterF),
+        LHS: mem::Read<Out = u16> + mem::Write<In = u16>,
+        RHS: mem::Read<Out = u16>,
+        F: FnOnce(u16, u16, RegisterF) -> (u16, RegisterF),
     {
-        let value = operand.read(self);
-        let (result, f) = func(value, *(self.cpu.register.f()));
+        let lhs_ = lhs.read(self);
+        let rhs_ = rhs.read(self);
+        let (result, f) = func(lhs_, rhs_, *(self.cpu.register.f()));
         *(self.cpu.register.f()) = f;
-        operand.write(self, result)?;
-        Ok(1)
-    }
-
-    fn unary_op_16<Operand, F>(&mut self, operand: Operand, func: F) -> Self::Output
-    where
-        Operand: mem::Read<Out = u16> + mem::Write<In = u16>,
-        F: FnOnce(u16) -> u16,
-    {
-        let value = operand.read(self);
-        let result = func(value);
-        operand.write(self, result)?;
+        lhs.write(self, result)?;
         Ok(2)
     }
 
