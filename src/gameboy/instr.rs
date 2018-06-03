@@ -6,17 +6,30 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x00 => gameboy.nop(),
         0x01 => gameboy.load(R16::BC, Immediate16),
         0x02 => gameboy.load(AddrOf(R16::BC), R8::A),
+        0x03 => gameboy.inc_16(R16::BC),
+        0x04 => gameboy.inc(R8::B),
+        0x05 => gameboy.dec(R8::B),
         0x06 => gameboy.load(R8::B, Immediate8),
         // Storing into a deref u16 pointer seems to be only this instruction,
         // so TBD if it should be special cased or if there are other similar instructions
         // but not necessarily LD -- e.g. PUSH or POP?
         // 0x08 => gameboy.load(AddrOf(Immediate16), R16::SP),
         0x0a => gameboy.load(R8::A, AddrOf(R16::BC)),
+        0x0b => gameboy.dec_16(R16::BC),
+        0x0c => gameboy.inc(R8::C),
+        0x0d => gameboy.dec(R8::C),
         0x0e => gameboy.load(R8::C, Immediate8),
+        0x10 => gameboy.stop(),
         0x11 => gameboy.load(R16::DE, Immediate16),
         0x12 => gameboy.load(AddrOf(R16::DE), R8::A),
+        0x13 => gameboy.inc_16(R16::DE),
+        0x14 => gameboy.inc(R8::D),
+        0x15 => gameboy.dec(R8::D),
         0x16 => gameboy.load(R8::D, Immediate8),
         0x1a => gameboy.load(R8::A, AddrOf(R16::DE)),
+        0x1b => gameboy.dec_16(R16::DE),
+        0x1c => gameboy.inc(R8::C),
+        0x1d => gameboy.dec(R8::C),
         0x1e => gameboy.load(R8::E, Immediate8),
         0x21 => gameboy.load(R16::HL, Immediate16),
         // If the `Read` argument is changed to allow mutation of the underlying data,
@@ -28,12 +41,18 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
             let _ = gameboy.inc_16(R16::HL)?;
             r
         }
+        0x23 => gameboy.inc_16(R16::HL),
+        0x24 => gameboy.inc(R8::H),
+        0x25 => gameboy.dec(R8::H),
         0x26 => gameboy.load(R8::H, Immediate8),
         0x2a => {
             let r = gameboy.load(R8::A, AddrOf(R16::HL));
             let _ = gameboy.inc_16(R16::HL)?;
             r
         }
+        0x2b => gameboy.dec_16(R16::HL),
+        0x2c => gameboy.inc(R8::L),
+        0x2d => gameboy.dec(R8::L),
         0x2e => gameboy.load(R8::L, Immediate8),
         0x31 => gameboy.load(R16::SP, Immediate16),
         0x32 => {
@@ -41,12 +60,18 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
             let _ = gameboy.dec_16(R16::HL)?;
             r
         }
+        0x33 => gameboy.inc_16(R16::SP),
+        0x34 => gameboy.inc(AddrOf(R16::HL)),
+        0x35 => gameboy.dec(AddrOf(R16::HL)),
         0x36 => gameboy.load(AddrOf(R16::HL), Immediate8),
         0x3a => {
             let r = gameboy.load(R8::A, AddrOf(R16::HL));
             let _ = gameboy.dec_16(R16::HL)?;
             r
         }
+        0x3b => gameboy.dec_16(R16::SP),
+        0x3c => gameboy.inc(R8::A),
+        0x3d => gameboy.dec(R8::A),
         0x3e => gameboy.load(R8::A, Immediate8),
         0x40 => gameboy.load(R8::B, R8::B),
         0x41 => gameboy.load(R8::B, R8::C),
@@ -320,6 +345,7 @@ trait Instructions {
 
     fn nop(&mut self) -> Self::Output;
     fn halt(&mut self) -> Self::Output;
+    fn stop(&mut self) -> Self::Output;
 }
 
 impl Instructions for GameBoy {
@@ -369,7 +395,7 @@ impl Instructions for GameBoy {
         let value = operand.read(self);
         let result = func(value);
         operand.write(self, result)?;
-        Ok(1)
+        Ok(2)
     }
 
     fn nop(&mut self) -> Self::Output {
@@ -377,6 +403,10 @@ impl Instructions for GameBoy {
     }
 
     fn halt(&mut self) -> Self::Output {
+        unimplemented!()
+    }
+
+    fn stop(&mut self) -> Self::Output {
         unimplemented!()
     }
 }
