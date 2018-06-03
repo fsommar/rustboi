@@ -1,4 +1,4 @@
-mod flag;
+pub(crate) mod flag;
 mod register;
 
 pub(crate) use self::register::*;

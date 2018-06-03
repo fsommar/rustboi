@@ -14,11 +14,11 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         // so TBD if it should be special cased or if there are other similar instructions
         // but not necessarily LD -- e.g. PUSH or POP?
         // 0x08 => gameboy.load(AddrOf(Immediate16), R16::SP),
-        0x0a => gameboy.load(R8::A, AddrOf(R16::BC)),
-        0x0b => gameboy.dec_16(R16::BC),
-        0x0c => gameboy.inc(R8::C),
-        0x0d => gameboy.dec(R8::C),
-        0x0e => gameboy.load(R8::C, Immediate8),
+        0x0A => gameboy.load(R8::A, AddrOf(R16::BC)),
+        0x0B => gameboy.dec_16(R16::BC),
+        0x0C => gameboy.inc(R8::C),
+        0x0D => gameboy.dec(R8::C),
+        0x0E => gameboy.load(R8::C, Immediate8),
         0x10 => gameboy.stop(),
         0x11 => gameboy.load(R16::DE, Immediate16),
         0x12 => gameboy.load(AddrOf(R16::DE), R8::A),
@@ -26,16 +26,18 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x14 => gameboy.inc(R8::D),
         0x15 => gameboy.dec(R8::D),
         0x16 => gameboy.load(R8::D, Immediate8),
-        0x1a => gameboy.load(R8::A, AddrOf(R16::DE)),
-        0x1b => gameboy.dec_16(R16::DE),
-        0x1c => gameboy.inc(R8::C),
-        0x1d => gameboy.dec(R8::C),
-        0x1e => gameboy.load(R8::E, Immediate8),
+        0x18 => gameboy.jump(Flags::Always, Immediate8),
+        0x1A => gameboy.load(R8::A, AddrOf(R16::DE)),
+        0x1B => gameboy.dec_16(R16::DE),
+        0x1C => gameboy.inc(R8::C),
+        0x1D => gameboy.dec(R8::C),
+        0x1E => gameboy.load(R8::E, Immediate8),
+        0x20 => gameboy.jump(Flags::NZ, Immediate8),
         0x21 => gameboy.load(R16::HL, Immediate16),
         // If the `Read` argument is changed to allow mutation of the underlying data,
         // it's not particularly nice to special case load and increment/decrement HL.
-        // so for now, this has to suffice.
-        // then it could read HL with side effects. I'm not too fond of that idea either,
+        // Another alternative is to read HL with side effects. I'm not too fond of that idea
+        // either, so for now, this has to suffice.
         0x22 => {
             let r = gameboy.load(AddrOf(R16::HL), R8::A);
             let _ = gameboy.inc_16(R16::HL)?;
@@ -45,15 +47,17 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x24 => gameboy.inc(R8::H),
         0x25 => gameboy.dec(R8::H),
         0x26 => gameboy.load(R8::H, Immediate8),
-        0x2a => {
+        0x28 => gameboy.jump(Flags::Z, Immediate8),
+        0x2A => {
             let r = gameboy.load(R8::A, AddrOf(R16::HL));
             let _ = gameboy.inc_16(R16::HL)?;
             r
         }
-        0x2b => gameboy.dec_16(R16::HL),
-        0x2c => gameboy.inc(R8::L),
-        0x2d => gameboy.dec(R8::L),
-        0x2e => gameboy.load(R8::L, Immediate8),
+        0x2B => gameboy.dec_16(R16::HL),
+        0x2C => gameboy.inc(R8::L),
+        0x2D => gameboy.dec(R8::L),
+        0x2E => gameboy.load(R8::L, Immediate8),
+        0x30 => gameboy.jump(Flags::NC, Immediate8),
         0x31 => gameboy.load(R16::SP, Immediate16),
         0x32 => {
             let r = gameboy.load(AddrOf(R16::HL), R8::A);
@@ -64,15 +68,16 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x34 => gameboy.inc(AddrOf(R16::HL)),
         0x35 => gameboy.dec(AddrOf(R16::HL)),
         0x36 => gameboy.load(AddrOf(R16::HL), Immediate8),
-        0x3a => {
+        0x38 => gameboy.jump(Flags::C, Immediate8),
+        0x3A => {
             let r = gameboy.load(R8::A, AddrOf(R16::HL));
             let _ = gameboy.dec_16(R16::HL)?;
             r
         }
-        0x3b => gameboy.dec_16(R16::SP),
-        0x3c => gameboy.inc(R8::A),
-        0x3d => gameboy.dec(R8::A),
-        0x3e => gameboy.load(R8::A, Immediate8),
+        0x3B => gameboy.dec_16(R16::SP),
+        0x3C => gameboy.inc(R8::A),
+        0x3D => gameboy.dec(R8::A),
+        0x3E => gameboy.load(R8::A, Immediate8),
         0x40 => gameboy.load(R8::B, R8::B),
         0x41 => gameboy.load(R8::B, R8::C),
         0x42 => gameboy.load(R8::B, R8::D),
@@ -83,12 +88,12 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x47 => gameboy.load(R8::B, R8::A),
         0x48 => gameboy.load(R8::C, R8::B),
         0x49 => gameboy.load(R8::C, R8::C),
-        0x4a => gameboy.load(R8::C, R8::D),
-        0x4b => gameboy.load(R8::C, R8::E),
-        0x4c => gameboy.load(R8::C, R8::H),
-        0x4d => gameboy.load(R8::C, R8::L),
-        0x4e => gameboy.load(R8::C, AddrOf(R16::HL)),
-        0x4f => gameboy.load(R8::C, R8::A),
+        0x4A => gameboy.load(R8::C, R8::D),
+        0x4B => gameboy.load(R8::C, R8::E),
+        0x4C => gameboy.load(R8::C, R8::H),
+        0x4D => gameboy.load(R8::C, R8::L),
+        0x4E => gameboy.load(R8::C, AddrOf(R16::HL)),
+        0x4F => gameboy.load(R8::C, R8::A),
         0x50 => gameboy.load(R8::D, R8::B),
         0x51 => gameboy.load(R8::D, R8::C),
         0x52 => gameboy.load(R8::D, R8::D),
@@ -100,11 +105,11 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x57 => gameboy.load(R8::E, R8::A),
         0x58 => gameboy.load(R8::E, R8::B),
         0x59 => gameboy.load(R8::E, R8::C),
-        0x5a => gameboy.load(R8::E, R8::D),
-        0x5b => gameboy.load(R8::E, R8::E),
-        0x5c => gameboy.load(R8::E, R8::H),
-        0x5d => gameboy.load(R8::E, R8::L),
-        0x5e => gameboy.load(R8::E, AddrOf(R16::HL)),
+        0x5A => gameboy.load(R8::E, R8::D),
+        0x5B => gameboy.load(R8::E, R8::E),
+        0x5C => gameboy.load(R8::E, R8::H),
+        0x5D => gameboy.load(R8::E, R8::L),
+        0x5E => gameboy.load(R8::E, AddrOf(R16::HL)),
         0x60 => gameboy.load(R8::H, R8::B),
         0x61 => gameboy.load(R8::H, R8::C),
         0x62 => gameboy.load(R8::H, R8::D),
@@ -116,11 +121,11 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x67 => gameboy.load(R8::L, R8::A),
         0x68 => gameboy.load(R8::L, R8::B),
         0x69 => gameboy.load(R8::L, R8::C),
-        0x6a => gameboy.load(R8::L, R8::D),
-        0x6b => gameboy.load(R8::L, R8::E),
-        0x6c => gameboy.load(R8::L, R8::H),
-        0x6d => gameboy.load(R8::L, R8::L),
-        0x6e => gameboy.load(R8::L, AddrOf(R16::HL)),
+        0x6A => gameboy.load(R8::L, R8::D),
+        0x6B => gameboy.load(R8::L, R8::E),
+        0x6C => gameboy.load(R8::L, R8::H),
+        0x6D => gameboy.load(R8::L, R8::L),
+        0x6E => gameboy.load(R8::L, AddrOf(R16::HL)),
         0x70 => gameboy.load(AddrOf(R16::HL), R8::B),
         0x71 => gameboy.load(AddrOf(R16::HL), R8::C),
         0x72 => gameboy.load(AddrOf(R16::HL), R8::D),
@@ -132,11 +137,11 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x77 => gameboy.load(R8::A, R8::A),
         0x78 => gameboy.load(R8::A, R8::B),
         0x79 => gameboy.load(R8::A, R8::C),
-        0x7a => gameboy.load(R8::A, R8::D),
-        0x7b => gameboy.load(R8::A, R8::E),
-        0x7c => gameboy.load(R8::A, R8::H),
-        0x7d => gameboy.load(R8::A, R8::L),
-        0x7e => gameboy.load(R8::A, AddrOf(R16::HL)),
+        0x7A => gameboy.load(R8::A, R8::D),
+        0x7B => gameboy.load(R8::A, R8::E),
+        0x7C => gameboy.load(R8::A, R8::H),
+        0x7D => gameboy.load(R8::A, R8::L),
+        0x7E => gameboy.load(R8::A, AddrOf(R16::HL)),
         0x80 => gameboy.add(R8::A, R8::B, Carry::Without),
         0x81 => gameboy.add(R8::A, R8::C, Carry::Without),
         0x82 => gameboy.add(R8::A, R8::D, Carry::Without),
@@ -147,12 +152,12 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x87 => gameboy.add(R8::A, R8::A, Carry::Without),
         0x88 => gameboy.add(R8::A, R8::B, Carry::With),
         0x89 => gameboy.add(R8::A, R8::C, Carry::With),
-        0x8a => gameboy.add(R8::A, R8::D, Carry::With),
-        0x8b => gameboy.add(R8::A, R8::E, Carry::With),
-        0x8c => gameboy.add(R8::A, R8::H, Carry::With),
-        0x8d => gameboy.add(R8::A, R8::L, Carry::With),
-        0x8e => gameboy.add(R8::A, AddrOf(R16::HL), Carry::With),
-        0x8f => gameboy.add(R8::A, R8::A, Carry::With),
+        0x8A => gameboy.add(R8::A, R8::D, Carry::With),
+        0x8B => gameboy.add(R8::A, R8::E, Carry::With),
+        0x8C => gameboy.add(R8::A, R8::H, Carry::With),
+        0x8D => gameboy.add(R8::A, R8::L, Carry::With),
+        0x8E => gameboy.add(R8::A, AddrOf(R16::HL), Carry::With),
+        0x8F => gameboy.add(R8::A, R8::A, Carry::With),
         0x90 => gameboy.sub(R8::A, R8::B, Carry::Without),
         0x91 => gameboy.sub(R8::A, R8::C, Carry::Without),
         0x92 => gameboy.sub(R8::A, R8::D, Carry::Without),
@@ -163,58 +168,63 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x97 => gameboy.sub(R8::A, R8::A, Carry::Without),
         0x98 => gameboy.sub(R8::A, R8::B, Carry::With),
         0x99 => gameboy.sub(R8::A, R8::C, Carry::With),
-        0x9a => gameboy.sub(R8::A, R8::D, Carry::With),
-        0x9b => gameboy.sub(R8::A, R8::E, Carry::With),
-        0x9c => gameboy.sub(R8::A, R8::H, Carry::With),
-        0x9d => gameboy.sub(R8::A, R8::L, Carry::With),
-        0x9e => gameboy.sub(R8::A, AddrOf(R16::HL), Carry::With),
-        0x9f => gameboy.sub(R8::A, R8::A, Carry::With),
-        0xa0 => gameboy.and(R8::A, R8::B),
-        0xa1 => gameboy.and(R8::A, R8::C),
-        0xa2 => gameboy.and(R8::A, R8::D),
-        0xa3 => gameboy.and(R8::A, R8::E),
-        0xa4 => gameboy.and(R8::A, R8::H),
-        0xa5 => gameboy.and(R8::A, R8::L),
-        0xa6 => gameboy.and(R8::A, AddrOf(R16::HL)),
-        0xa7 => gameboy.and(R8::A, R8::A),
-        0xa8 => gameboy.xor(R8::A, R8::B),
-        0xa9 => gameboy.xor(R8::A, R8::C),
-        0xaa => gameboy.xor(R8::A, R8::D),
-        0xab => gameboy.xor(R8::A, R8::E),
-        0xac => gameboy.xor(R8::A, R8::H),
-        0xad => gameboy.xor(R8::A, R8::L),
-        0xae => gameboy.xor(R8::A, AddrOf(R16::HL)),
-        0xaf => gameboy.xor(R8::A, R8::A),
-        0xb0 => gameboy.or(R8::A, R8::B),
-        0xb1 => gameboy.or(R8::A, R8::C),
-        0xb2 => gameboy.or(R8::A, R8::D),
-        0xb3 => gameboy.or(R8::A, R8::E),
-        0xb4 => gameboy.or(R8::A, R8::H),
-        0xb5 => gameboy.or(R8::A, R8::L),
-        0xb6 => gameboy.or(R8::A, AddrOf(R16::HL)),
-        0xb7 => gameboy.or(R8::A, R8::A),
-        0xb8 => gameboy.cmp(R8::A, R8::B),
-        0xb9 => gameboy.cmp(R8::A, R8::C),
-        0xba => gameboy.cmp(R8::A, R8::D),
-        0xbb => gameboy.cmp(R8::A, R8::E),
-        0xbc => gameboy.cmp(R8::A, R8::H),
-        0xbd => gameboy.cmp(R8::A, R8::L),
-        0xbe => gameboy.cmp(R8::A, AddrOf(R16::HL)),
-        0xbf => gameboy.cmp(R8::A, R8::A),
-        0xc6 => gameboy.add(R8::A, Immediate8, Carry::Without),
-        0xce => gameboy.add(R8::A, Immediate8, Carry::With),
-        0xd6 => gameboy.sub(R8::A, Immediate8, Carry::Without),
-        0xde => gameboy.sub(R8::A, Immediate8, Carry::With),
-        0xe0 => gameboy.load(AddrOf(Immediate8), R8::A),
-        0xe2 => gameboy.load(AddrOf(R8::C), R8::A),
-        0xe6 => gameboy.and(R8::A, Immediate8),
-        0xee => gameboy.xor(R8::A, Immediate8),
-        0xea => gameboy.load(AddrOf(Immediate16), R8::A),
-        0xf0 => gameboy.load(R8::A, AddrOf(Immediate8)),
-        0xf2 => gameboy.load(R8::A, AddrOf(R8::C)),
-        0xf6 => gameboy.or(R8::A, Immediate8),
-        0xfa => gameboy.load(R8::A, AddrOf(Immediate16)),
-        0xfe => gameboy.cmp(R8::A, Immediate8),
+        0x9A => gameboy.sub(R8::A, R8::D, Carry::With),
+        0x9B => gameboy.sub(R8::A, R8::E, Carry::With),
+        0x9C => gameboy.sub(R8::A, R8::H, Carry::With),
+        0x9D => gameboy.sub(R8::A, R8::L, Carry::With),
+        0x9E => gameboy.sub(R8::A, AddrOf(R16::HL), Carry::With),
+        0x9F => gameboy.sub(R8::A, R8::A, Carry::With),
+        0xA0 => gameboy.and(R8::A, R8::B),
+        0xA1 => gameboy.and(R8::A, R8::C),
+        0xA2 => gameboy.and(R8::A, R8::D),
+        0xA3 => gameboy.and(R8::A, R8::E),
+        0xA4 => gameboy.and(R8::A, R8::H),
+        0xA5 => gameboy.and(R8::A, R8::L),
+        0xA6 => gameboy.and(R8::A, AddrOf(R16::HL)),
+        0xA7 => gameboy.and(R8::A, R8::A),
+        0xA8 => gameboy.xor(R8::A, R8::B),
+        0xA9 => gameboy.xor(R8::A, R8::C),
+        0xAA => gameboy.xor(R8::A, R8::D),
+        0xAB => gameboy.xor(R8::A, R8::E),
+        0xAC => gameboy.xor(R8::A, R8::H),
+        0xAD => gameboy.xor(R8::A, R8::L),
+        0xAE => gameboy.xor(R8::A, AddrOf(R16::HL)),
+        0xAF => gameboy.xor(R8::A, R8::A),
+        0xB0 => gameboy.or(R8::A, R8::B),
+        0xB1 => gameboy.or(R8::A, R8::C),
+        0xB2 => gameboy.or(R8::A, R8::D),
+        0xB3 => gameboy.or(R8::A, R8::E),
+        0xB4 => gameboy.or(R8::A, R8::H),
+        0xB5 => gameboy.or(R8::A, R8::L),
+        0xB6 => gameboy.or(R8::A, AddrOf(R16::HL)),
+        0xB7 => gameboy.or(R8::A, R8::A),
+        0xB8 => gameboy.cmp(R8::A, R8::B),
+        0xB9 => gameboy.cmp(R8::A, R8::C),
+        0xBA => gameboy.cmp(R8::A, R8::D),
+        0xBB => gameboy.cmp(R8::A, R8::E),
+        0xBC => gameboy.cmp(R8::A, R8::H),
+        0xBD => gameboy.cmp(R8::A, R8::L),
+        0xBE => gameboy.cmp(R8::A, AddrOf(R16::HL)),
+        0xBF => gameboy.cmp(R8::A, R8::A),
+        0xC2 => gameboy.jump(Flags::NZ, Immediate16),
+        0xC3 => gameboy.jump(Flags::Always, Immediate16),
+        0xC6 => gameboy.add(R8::A, Immediate8, Carry::Without),
+        0xCA => gameboy.jump(Flags::Z, Immediate16),
+        0xCE => gameboy.add(R8::A, Immediate8, Carry::With),
+        0xD2 => gameboy.jump(Flags::NC, Immediate16),
+        0xD6 => gameboy.sub(R8::A, Immediate8, Carry::Without),
+        0xDA => gameboy.jump(Flags::C, Immediate16),
+        0xDE => gameboy.sub(R8::A, Immediate8, Carry::With),
+        0xE0 => gameboy.load(AddrOf(Immediate8), R8::A),
+        0xE2 => gameboy.load(AddrOf(R8::C), R8::A),
+        0xE6 => gameboy.and(R8::A, Immediate8),
+        0xEE => gameboy.xor(R8::A, Immediate8),
+        0xEA => gameboy.load(AddrOf(Immediate16), R8::A),
+        0xF0 => gameboy.load(R8::A, AddrOf(Immediate8)),
+        0xF2 => gameboy.load(R8::A, AddrOf(R8::C)),
+        0xF6 => gameboy.or(R8::A, Immediate8),
+        0xFA => gameboy.load(R8::A, AddrOf(Immediate16)),
+        0xFE => gameboy.cmp(R8::A, Immediate8),
         _ => Err(format!("Unable to match opcode {:x}", opcode)),
     }
 }
@@ -248,7 +258,7 @@ impl<A: AsAddress, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
     }
 }
 
-impl<V, T: mem::Write<In=V>> mem::Write for NoWrite<T> {
+impl<V, T: mem::Write<In = V>> mem::Write for NoWrite<T> {
     type In = V;
     fn write(&self, _: &mut GameBoy, _: Self::In) -> Result<(), String> {
         // NoWrite causes write to be a NOOP.
@@ -256,7 +266,7 @@ impl<V, T: mem::Write<In=V>> mem::Write for NoWrite<T> {
     }
 }
 
-impl <V, T: mem::Read<Out=V>> mem::Read for NoWrite<T> {
+impl<V, T: mem::Read<Out = V>> mem::Read for NoWrite<T> {
     type Out = V;
     fn read(&self, gb: &GameBoy) -> Self::Out {
         self.0.read(gb)
@@ -291,6 +301,18 @@ impl mem::Read for Immediate16 {
     fn read(&self, gb: &GameBoy) -> Self::Out {
         gb.mmu.read_u16(gb.cpu.register.pc())
     }
+}
+
+enum Flags {
+    Always,
+    Z,
+    N,
+    H,
+    C,
+    NZ,
+    NN,
+    NH,
+    NC,
 }
 
 enum R8 {
@@ -395,6 +417,11 @@ trait Instructions {
         LHS: mem::Read<Out = u16> + mem::Write<In = u16>,
         RHS: mem::Read<Out = u16>,
         F: FnOnce(u16, u16, RegisterF) -> (u16, RegisterF);
+
+    fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
+    where
+        V: Into<u16>,
+        Offset: mem::Read<Out = V>;
 
     fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
@@ -517,6 +544,31 @@ impl Instructions for GameBoy {
         *(self.cpu.register.f()) = f;
         lhs.write(self, result)?;
         Ok(2)
+    }
+
+    fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
+    where
+        V: Into<u16>,
+        Offset: mem::Read<Out = V>,
+    {
+        let offset_ = offset.read(self);
+        let f = *(self.cpu.register.f());
+        if match flags {
+            Always => true,
+            Z => f[flag::Z].as_bool(),
+            N => f[flag::N].as_bool(),
+            H => f[flag::H].as_bool(),
+            C => f[flag::C].as_bool(),
+            NZ => !f[flag::Z].as_bool(),
+            NN => !f[flag::N].as_bool(),
+            NH => !f[flag::H].as_bool(),
+            NC => !f[flag::C].as_bool(),
+        } {
+            *(&mut self.cpu.register.pc()) += offset_.into();
+            Ok(3)
+        } else {
+            Ok(2)
+        }
     }
 
     fn nop(&mut self) -> Self::Output {
