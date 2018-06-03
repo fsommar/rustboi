@@ -1,12 +1,14 @@
+extern crate num_traits;
+
 use super::*;
-use std::convert::{From, TryFrom};
+use std;
 
 pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
     match opcode {
         0x00 => gameboy.nop(),
         0x01 => gameboy.load(R16::BC, Immediate16),
         0x02 => gameboy.load(AddrOf(R16::BC), R8::A),
-        0x03 => gameboy.inc_16(R16::BC),
+        0x03 => gameboy.inc(R16::BC),
         0x04 => gameboy.inc(R8::B),
         0x05 => gameboy.dec(R8::B),
         0x06 => gameboy.load(R8::B, Immediate8),
@@ -15,66 +17,46 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         // but not necessarily LD -- e.g. PUSH or POP?
         // 0x08 => gameboy.load(AddrOf(Immediate16), R16::SP),
         0x0A => gameboy.load(R8::A, AddrOf(R16::BC)),
-        0x0B => gameboy.dec_16(R16::BC),
+        0x0B => gameboy.dec(R16::BC),
         0x0C => gameboy.inc(R8::C),
         0x0D => gameboy.dec(R8::C),
         0x0E => gameboy.load(R8::C, Immediate8),
         0x10 => gameboy.stop(),
         0x11 => gameboy.load(R16::DE, Immediate16),
         0x12 => gameboy.load(AddrOf(R16::DE), R8::A),
-        0x13 => gameboy.inc_16(R16::DE),
+        0x13 => gameboy.inc(R16::DE),
         0x14 => gameboy.inc(R8::D),
         0x15 => gameboy.dec(R8::D),
         0x16 => gameboy.load(R8::D, Immediate8),
         0x18 => gameboy.jump(Flags::Always, Immediate8),
         0x1A => gameboy.load(R8::A, AddrOf(R16::DE)),
-        0x1B => gameboy.dec_16(R16::DE),
+        0x1B => gameboy.dec(R16::DE),
         0x1C => gameboy.inc(R8::C),
         0x1D => gameboy.dec(R8::C),
         0x1E => gameboy.load(R8::E, Immediate8),
         0x20 => gameboy.jump(Flags::NZ, Immediate8),
         0x21 => gameboy.load(R16::HL, Immediate16),
-        // If the `Read` argument is changed to allow mutation of the underlying data,
-        // it's not particularly nice to special case load and increment/decrement HL.
-        // Another alternative is to read HL with side effects. I'm not too fond of that idea
-        // either, so for now, this has to suffice.
-        0x22 => {
-            let r = gameboy.load(AddrOf(R16::HL), R8::A);
-            let _ = gameboy.inc_16(R16::HL)?;
-            r
-        }
-        0x23 => gameboy.inc_16(R16::HL),
+        0x22 => gameboy.load(AddrOf(PostInc(R16::HL)), R8::A),
+        0x23 => gameboy.inc(R16::HL),
         0x24 => gameboy.inc(R8::H),
         0x25 => gameboy.dec(R8::H),
         0x26 => gameboy.load(R8::H, Immediate8),
         0x28 => gameboy.jump(Flags::Z, Immediate8),
-        0x2A => {
-            let r = gameboy.load(R8::A, AddrOf(R16::HL));
-            let _ = gameboy.inc_16(R16::HL)?;
-            r
-        }
-        0x2B => gameboy.dec_16(R16::HL),
+        0x2A => gameboy.load(R8::A, AddrOf(PostInc(R16::HL))),
+        0x2B => gameboy.dec(R16::HL),
         0x2C => gameboy.inc(R8::L),
         0x2D => gameboy.dec(R8::L),
         0x2E => gameboy.load(R8::L, Immediate8),
         0x30 => gameboy.jump(Flags::NC, Immediate8),
         0x31 => gameboy.load(R16::SP, Immediate16),
-        0x32 => {
-            let r = gameboy.load(AddrOf(R16::HL), R8::A);
-            let _ = gameboy.dec_16(R16::HL)?;
-            r
-        }
-        0x33 => gameboy.inc_16(R16::SP),
+        0x32 => gameboy.load(AddrOf(PostDec(R16::HL)), R8::A),
+        0x33 => gameboy.inc(R16::SP),
         0x34 => gameboy.inc(AddrOf(R16::HL)),
         0x35 => gameboy.dec(AddrOf(R16::HL)),
         0x36 => gameboy.load(AddrOf(R16::HL), Immediate8),
         0x38 => gameboy.jump(Flags::C, Immediate8),
-        0x3A => {
-            let r = gameboy.load(R8::A, AddrOf(R16::HL));
-            let _ = gameboy.dec_16(R16::HL)?;
-            r
-        }
-        0x3B => gameboy.dec_16(R16::SP),
+        0x3A => gameboy.load(R8::A, AddrOf(PostDec(R16::HL))),
+        0x3B => gameboy.dec(R16::SP),
         0x3C => gameboy.inc(R8::A),
         0x3D => gameboy.dec(R8::A),
         0x3E => gameboy.load(R8::A, Immediate8),
@@ -102,7 +84,6 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x55 => gameboy.load(R8::D, R8::L),
         0x56 => gameboy.load(R8::D, AddrOf(R16::HL)),
         0x57 => gameboy.load(R8::D, R8::A),
-        0x57 => gameboy.load(R8::E, R8::A),
         0x58 => gameboy.load(R8::E, R8::B),
         0x59 => gameboy.load(R8::E, R8::C),
         0x5A => gameboy.load(R8::E, R8::D),
@@ -110,6 +91,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x5C => gameboy.load(R8::E, R8::H),
         0x5D => gameboy.load(R8::E, R8::L),
         0x5E => gameboy.load(R8::E, AddrOf(R16::HL)),
+        0x5F => gameboy.load(R8::E, R8::A),
         0x60 => gameboy.load(R8::H, R8::B),
         0x61 => gameboy.load(R8::H, R8::C),
         0x62 => gameboy.load(R8::H, R8::D),
@@ -118,7 +100,6 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x65 => gameboy.load(R8::H, R8::L),
         0x66 => gameboy.load(R8::H, AddrOf(R16::HL)),
         0x67 => gameboy.load(R8::H, R8::A),
-        0x67 => gameboy.load(R8::L, R8::A),
         0x68 => gameboy.load(R8::L, R8::B),
         0x69 => gameboy.load(R8::L, R8::C),
         0x6A => gameboy.load(R8::L, R8::D),
@@ -126,6 +107,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x6C => gameboy.load(R8::L, R8::H),
         0x6D => gameboy.load(R8::L, R8::L),
         0x6E => gameboy.load(R8::L, AddrOf(R16::HL)),
+        0x6F => gameboy.load(R8::L, R8::A),
         0x70 => gameboy.load(AddrOf(R16::HL), R8::B),
         0x71 => gameboy.load(AddrOf(R16::HL), R8::C),
         0x72 => gameboy.load(AddrOf(R16::HL), R8::D),
@@ -134,7 +116,6 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x75 => gameboy.load(AddrOf(R16::HL), R8::L),
         0x76 => gameboy.halt(),
         0x77 => gameboy.load(AddrOf(R16::HL), R8::A),
-        0x77 => gameboy.load(R8::A, R8::A),
         0x78 => gameboy.load(R8::A, R8::B),
         0x79 => gameboy.load(R8::A, R8::C),
         0x7A => gameboy.load(R8::A, R8::D),
@@ -142,6 +123,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x7C => gameboy.load(R8::A, R8::H),
         0x7D => gameboy.load(R8::A, R8::L),
         0x7E => gameboy.load(R8::A, AddrOf(R16::HL)),
+        0x7F => gameboy.load(R8::A, R8::A),
         0x80 => gameboy.add(R8::A, R8::B, Carry::Without),
         0x81 => gameboy.add(R8::A, R8::C, Carry::Without),
         0x82 => gameboy.add(R8::A, R8::D, Carry::Without),
@@ -229,6 +211,8 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
     }
 }
 
+struct PostDec<T>(T);
+struct PostInc<T>(T);
 struct NoWrite<T>(T);
 struct Constant<T>(T);
 struct AddrOf<T>(T);
@@ -251,10 +235,50 @@ impl AsAddress for u8 {
     }
 }
 
+impl<W, T> mem::Read for PostInc<W>
+where
+    T: num_traits::PrimInt + num_traits::Unsigned,
+    W: mem::Write<In = T> + mem::Read<Out = T>,
+{
+    type Out = T;
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
+        let value = self.0.read(gb);
+        self.0
+            .write(gb, value + T::one())
+            .expect("post inc write must not fail");
+        value
+    }
+}
+
+impl<W, T> mem::Read for PostDec<W>
+where
+    T: num_traits::PrimInt + num_traits::Unsigned,
+    W: mem::Write<In = T> + mem::Read<Out = T>,
+{
+    type Out = T;
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
+        let value = self.0.read(gb);
+        self.0
+            .write(gb, value - T::one())
+            .expect("post dec write must not fail");
+        value
+    }
+}
+
 impl<A: AsAddress, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
     type Out = u8;
-    fn read(&self, gb: &GameBoy) -> Self::Out {
-        gb.mmu.read_u8(self.0.read(gb).as_address())
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
+        let addr = self.0.read(gb).as_address();
+        gb.mmu.read_u8(addr)
+    }
+}
+
+impl<A: AsAddress, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
+    type In = u8;
+    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
+        let addr = self.0.read(gb).as_address();
+        gb.mmu.write_u8(addr, value);
+        Ok(())
     }
 }
 
@@ -268,37 +292,28 @@ impl<V, T: mem::Write<In = V>> mem::Write for NoWrite<T> {
 
 impl<V, T: mem::Read<Out = V>> mem::Read for NoWrite<T> {
     type Out = V;
-    fn read(&self, gb: &GameBoy) -> Self::Out {
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
         self.0.read(gb)
     }
 }
 
 impl<T: Copy> mem::Read for Constant<T> {
     type Out = T;
-    fn read(&self, _: &GameBoy) -> Self::Out {
+    fn read(&self, _: &mut GameBoy) -> Self::Out {
         self.0
-    }
-}
-
-impl<A: AsAddress, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
-    type In = u8;
-    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
-        let addr = self.0.read(gb).as_address();
-        gb.mmu.write_u8(addr, value);
-        Ok(())
     }
 }
 
 impl mem::Read for Immediate8 {
     type Out = u8;
-    fn read(&self, gb: &GameBoy) -> Self::Out {
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
         gb.mmu.read_u8(gb.cpu.register.pc())
     }
 }
 
 impl mem::Read for Immediate16 {
     type Out = u16;
-    fn read(&self, gb: &GameBoy) -> Self::Out {
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
         gb.mmu.read_u16(gb.cpu.register.pc())
     }
 }
@@ -327,7 +342,8 @@ enum R8 {
 
 impl mem::Read for R8 {
     type Out = u8;
-    fn read(&self, gb: &GameBoy) -> Self::Out {
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
+        use self::R8::*;
         match self {
             A => gb.cpu.register.a(),
             B => gb.cpu.register.b(),
@@ -343,6 +359,7 @@ impl mem::Read for R8 {
 impl mem::Write for R8 {
     type In = u8;
     fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
+        use self::R8::*;
         let reg: &mut u8 = &mut match self {
             A => gb.cpu.register.a(),
             B => gb.cpu.register.b(),
@@ -367,7 +384,8 @@ enum R16 {
 
 impl mem::Read for R16 {
     type Out = u16;
-    fn read(&self, gb: &GameBoy) -> Self::Out {
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
+        use self::R16::*;
         match self {
             AF => gb.cpu.register.af(),
             BC => gb.cpu.register.bc(),
@@ -381,6 +399,7 @@ impl mem::Read for R16 {
 impl mem::Write for R16 {
     type In = u16;
     fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
+        use self::R16::*;
         let reg: &mut u16 = &mut match self {
             AF => gb.cpu.register.af(),
             BC => gb.cpu.register.bc(),
@@ -406,17 +425,12 @@ trait Instructions {
         W: mem::Write<In = V>,
         R: mem::Read<Out = V>;
 
-    fn binary_op<LHS, RHS, F>(&mut self, LHS, RHS, F) -> Self::Output
+    fn binary_op<LHS, RHS, F, Num>(&mut self, LHS, RHS, F) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
-        F: FnOnce(u8, u8, RegisterF) -> (u8, RegisterF);
-
-    fn binary_op_16<LHS, RHS, F>(&mut self, LHS, RHS, F) -> Self::Output
-    where
-        LHS: mem::Read<Out = u16> + mem::Write<In = u16>,
-        RHS: mem::Read<Out = u16>,
-        F: FnOnce(u16, u16, RegisterF) -> (u16, RegisterF);
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
+        Num: num_traits::PrimInt + num_traits::Unsigned;
 
     fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
     where
@@ -472,32 +486,20 @@ trait Instructions {
         self.binary_op(NoWrite(lhs), rhs, |x, y, rf| (x - y, rf))
     }
 
-    fn inc<T>(&mut self, operand: T) -> Self::Output
+    fn inc<T, Num>(&mut self, operand: T) -> Self::Output
     where
-        T: mem::Read<Out = u8> + mem::Write<In = u8>,
+        T: mem::Read<Out = Num> + mem::Write<In = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
-        self.binary_op(operand, Constant(1), |x, y, rf| (x + y, rf))
+        self.binary_op(operand, Constant(Num::one()), |x, y, rf| (x + y, rf))
     }
 
-    fn inc_16<T>(&mut self, operand: T) -> Self::Output
+    fn dec<T, Num>(&mut self, operand: T) -> Self::Output
     where
-        T: mem::Read<Out = u16> + mem::Write<In = u16>,
+        T: mem::Read<Out = Num> + mem::Write<In = Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
-        self.binary_op_16(operand, Constant(1), |x, y, rf| (x + y, rf))
-    }
-
-    fn dec<T>(&mut self, operand: T) -> Self::Output
-    where
-        T: mem::Read<Out = u8> + mem::Write<In = u8>,
-    {
-        self.binary_op(operand, Constant(1), |x, y, rf| (x - y, rf))
-    }
-
-    fn dec_16<T>(&mut self, operand: T) -> Self::Output
-    where
-        T: mem::Read<Out = u16> + mem::Write<In = u16>,
-    {
-        self.binary_op_16(operand, Constant(1), |x, y, rf| (x - y, rf))
+        self.binary_op(operand, Constant(Num::one()), |x, y, rf| (x - y, rf))
     }
 
     fn nop(&mut self) -> Self::Output;
@@ -518,11 +520,12 @@ impl Instructions for GameBoy {
         Ok(1)
     }
 
-    fn binary_op<LHS, RHS, F>(&mut self, lhs: LHS, rhs: RHS, func: F) -> Self::Output
+    fn binary_op<LHS, RHS, F, Num>(&mut self, lhs: LHS, rhs: RHS, func: F) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
-        F: FnOnce(u8, u8, RegisterF) -> (u8, RegisterF),
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
+        Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         let lhs_ = lhs.read(self);
         let rhs_ = rhs.read(self);
@@ -532,25 +535,12 @@ impl Instructions for GameBoy {
         Ok(1)
     }
 
-    fn binary_op_16<LHS, RHS, F>(&mut self, lhs: LHS, rhs: RHS, func: F) -> Self::Output
-    where
-        LHS: mem::Read<Out = u16> + mem::Write<In = u16>,
-        RHS: mem::Read<Out = u16>,
-        F: FnOnce(u16, u16, RegisterF) -> (u16, RegisterF),
-    {
-        let lhs_ = lhs.read(self);
-        let rhs_ = rhs.read(self);
-        let (result, f) = func(lhs_, rhs_, *(self.cpu.register.f()));
-        *(self.cpu.register.f()) = f;
-        lhs.write(self, result)?;
-        Ok(2)
-    }
-
     fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
     where
         V: Into<u16>,
         Offset: mem::Read<Out = V>,
     {
+        use self::Flags::*;
         let offset_ = offset.read(self);
         let f = *(self.cpu.register.f());
         if match flags {

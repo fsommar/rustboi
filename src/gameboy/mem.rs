@@ -63,7 +63,7 @@ fn test_write_u16() {
 
 pub(crate) trait Read {
     type Out;
-    fn read(&self, &super::GameBoy) -> Self::Out;
+    fn read(&self, &mut super::GameBoy) -> Self::Out;
 }
 
 pub(crate) trait Write {
