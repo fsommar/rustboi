@@ -203,17 +203,24 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0xE0 => gameboy.load(AddrOf(Immediate8), R8::A),
         0xE2 => gameboy.load(AddrOf(R8::C), R8::A),
         0xE6 => gameboy.and(R8::A, Immediate8),
+        // TODO: Handle Immediate8 as signed
+        // 0xE8 => gameboy.add(R16::SP, Immediate8, Carry::Without),
         0xEE => gameboy.xor(R8::A, Immediate8),
         0xEA => gameboy.load(AddrOf(Immediate16), R8::A),
         0xF0 => gameboy.load(R8::A, AddrOf(Immediate8)),
         0xF2 => gameboy.load(R8::A, AddrOf(R8::C)),
+        0xF3 => gameboy.set_interrupt(Interrupt::Disable),
         0xF6 => gameboy.or(R8::A, Immediate8),
+        0xF8 => gameboy.load(R16::HL, Plus(R16::SP, Immediate8)),
+        0xF9 => gameboy.load(R16::SP, R16::HL),
         0xFA => gameboy.load(R8::A, AddrOf(Immediate16)),
+        0xFB => gameboy.set_interrupt(Interrupt::Enable),
         0xFE => gameboy.cmp(R8::A, Immediate8),
         _ => Err(format!("Unable to match opcode {:x}", opcode)),
     }
 }
 
+struct Plus<T, U>(T, U);
 struct PostDec<T>(T);
 struct PostInc<T>(T);
 struct NoWrite<T>(T);
@@ -235,6 +242,21 @@ impl AsAddress for u16 {
 impl AsAddress for u8 {
     fn as_address(self) -> u16 {
         self as u16 + 0xff
+    }
+}
+
+impl<T, U, UNum, Num> mem::Read for Plus<T, U>
+where
+    T: mem::Read<Out = Num>,
+    U: mem::Read<Out = UNum>,
+    UNum: Into<Num>,
+    Num: num_traits::PrimInt + num_traits::Unsigned,
+{
+    type Out = Num;
+    fn read(&self, gb: &mut GameBoy) -> Self::Out {
+        let lhs = self.0.read(gb);
+        let rhs = self.1.read(gb);
+        lhs + rhs.into()
     }
 }
 
@@ -420,6 +442,11 @@ enum Carry {
     With,
 }
 
+enum Interrupt {
+    Enable,
+    Disable,
+}
+
 trait Instructions {
     type Output;
 
@@ -435,10 +462,12 @@ trait Instructions {
         F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
         Num: num_traits::PrimInt + num_traits::Unsigned;
 
-    fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
+    fn jump<Offset, V>(&mut self, Flags, Offset) -> Self::Output
     where
         V: Into<u16>,
         Offset: mem::Read<Out = V>;
+
+    fn set_interrupt(&mut self, Interrupt) -> Self::Output;
 
     fn add<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
@@ -579,6 +608,10 @@ impl Instructions for GameBoy {
     }
 
     fn stop(&mut self) -> Self::Output {
+        unimplemented!()
+    }
+
+    fn set_interrupt(&mut self, _: Interrupt) -> Self::Output {
         unimplemented!()
     }
 }
