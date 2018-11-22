@@ -1,5 +1,3 @@
-use std::ops::{Index, IndexMut};
-
 #[derive(Debug)]
 pub(crate) struct MMU {
     mem: Box<[u8]>

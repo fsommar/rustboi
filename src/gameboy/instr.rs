@@ -1,6 +1,7 @@
 extern crate num_traits;
 
 use super::*;
+use self::cpu::*;
 
 pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
     match opcode {

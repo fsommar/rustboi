@@ -3,7 +3,6 @@ mod instr;
 mod mem;
 
 use self::cpu::*;
-use std::{convert::TryInto};
 
 #[derive(Debug, Default)]
 pub(crate) struct GameBoy {

@@ -64,7 +64,7 @@ pub trait Register8 {
     fn l(self) -> Self::Output;
 }
 
-impl<'a> Register8 for &'a Register {
+impl Register8 for Register {
     type Output = u8;
     fn a(self) -> Self::Output { self.af.hi() }
     fn b(self) -> Self::Output { self.bc.hi() }
@@ -95,7 +95,7 @@ pub trait Register16 {
     fn sp(self) -> Self::Output;
 }
 
-impl<'a> Register16 for &'a Register {
+impl Register16 for Register {
     type Output = u16;
     fn af(self) -> Self::Output { self.af.as_u16() }
     fn bc(self) -> Self::Output { self.bc.as_u16() }
@@ -118,7 +118,7 @@ pub trait RegisterPc {
     fn pc(self) -> Self::Output;
 }
 
-impl<'a> RegisterPc for &'a Register {
+impl RegisterPc for Register {
     type Output = u16;
     fn pc(self) -> Self::Output { self.pc.pc }
 }
@@ -131,10 +131,6 @@ impl<'a> RegisterPc for &'a mut Register {
 impl Register {
     pub(crate) fn f(&mut self) -> &mut RegisterF {
         unsafe { std::mem::transmute(self.af.lo_mut()) }
-    }
-
-    pub(crate) fn pc(&mut self) -> &mut ProgramCounter {
-        &mut self.pc
     }
 }
 
