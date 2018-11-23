@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub(crate) struct MMU {
-    mem: Box<[u8]>
+    mem: Box<[u8]>,
 }
 
 impl MMU {

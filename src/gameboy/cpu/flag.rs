@@ -1,8 +1,10 @@
 use super::RegisterF;
-use std::{self,
-          convert::From,
-          marker::PhantomData,
-          ops::{Index, IndexMut}};
+use std::{
+    self,
+    convert::From,
+    marker::PhantomData,
+    ops::{Index, IndexMut},
+};
 
 /// `flag::Value` is an alternative view of `RegisterF` for a specific flag.
 ///

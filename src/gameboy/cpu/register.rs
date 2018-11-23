@@ -1,4 +1,7 @@
-use std::{self, ops::{Deref, DerefMut}};
+use std::{
+    self,
+    ops::{Deref, DerefMut},
+};
 
 #[cfg(test)]
 use super::flag;
@@ -36,7 +39,7 @@ pub(crate) struct StackPointer {
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(crate) struct ProgramCounter {
-    pc: u16
+    pc: u16,
 }
 
 impl Deref for ProgramCounter {
@@ -66,24 +69,52 @@ pub trait Register8 {
 
 impl Register8 for Register {
     type Output = u8;
-    fn a(self) -> Self::Output { self.af.hi() }
-    fn b(self) -> Self::Output { self.bc.hi() }
-    fn c(self) -> Self::Output { self.bc.lo() }
-    fn d(self) -> Self::Output { self.de.hi() }
-    fn e(self) -> Self::Output { self.de.lo() }
-    fn h(self) -> Self::Output { self.hl.hi() }
-    fn l(self) -> Self::Output { self.hl.lo() }
+    fn a(self) -> Self::Output {
+        self.af.hi()
+    }
+    fn b(self) -> Self::Output {
+        self.bc.hi()
+    }
+    fn c(self) -> Self::Output {
+        self.bc.lo()
+    }
+    fn d(self) -> Self::Output {
+        self.de.hi()
+    }
+    fn e(self) -> Self::Output {
+        self.de.lo()
+    }
+    fn h(self) -> Self::Output {
+        self.hl.hi()
+    }
+    fn l(self) -> Self::Output {
+        self.hl.lo()
+    }
 }
 
 impl<'a> Register8 for &'a mut Register {
     type Output = &'a mut u8;
-    fn a(self) -> Self::Output { self.af.hi_mut() }
-    fn b(self) -> Self::Output { self.bc.hi_mut() }
-    fn c(self) -> Self::Output { self.bc.lo_mut() }
-    fn d(self) -> Self::Output { self.de.hi_mut() }
-    fn e(self) -> Self::Output { self.de.lo_mut() }
-    fn h(self) -> Self::Output { self.hl.hi_mut() }
-    fn l(self) -> Self::Output { self.hl.lo_mut() }
+    fn a(self) -> Self::Output {
+        self.af.hi_mut()
+    }
+    fn b(self) -> Self::Output {
+        self.bc.hi_mut()
+    }
+    fn c(self) -> Self::Output {
+        self.bc.lo_mut()
+    }
+    fn d(self) -> Self::Output {
+        self.de.hi_mut()
+    }
+    fn e(self) -> Self::Output {
+        self.de.lo_mut()
+    }
+    fn h(self) -> Self::Output {
+        self.hl.hi_mut()
+    }
+    fn l(self) -> Self::Output {
+        self.hl.lo_mut()
+    }
 }
 
 pub trait Register16 {
@@ -97,20 +128,40 @@ pub trait Register16 {
 
 impl Register16 for Register {
     type Output = u16;
-    fn af(self) -> Self::Output { self.af.as_u16() }
-    fn bc(self) -> Self::Output { self.bc.as_u16() }
-    fn de(self) -> Self::Output { self.de.as_u16() }
-    fn hl(self) -> Self::Output { self.hl.as_u16() }
-    fn sp(self) -> Self::Output { self.sp.sp }
+    fn af(self) -> Self::Output {
+        self.af.as_u16()
+    }
+    fn bc(self) -> Self::Output {
+        self.bc.as_u16()
+    }
+    fn de(self) -> Self::Output {
+        self.de.as_u16()
+    }
+    fn hl(self) -> Self::Output {
+        self.hl.as_u16()
+    }
+    fn sp(self) -> Self::Output {
+        self.sp.sp
+    }
 }
 
 impl<'a> Register16 for &'a mut Register {
     type Output = &'a mut u16;
-    fn af(self) -> Self::Output { self.af.as_u16_mut() }
-    fn bc(self) -> Self::Output { self.bc.as_u16_mut() }
-    fn de(self) -> Self::Output { self.de.as_u16_mut() }
-    fn hl(self) -> Self::Output { self.hl.as_u16_mut() }
-    fn sp(self) -> Self::Output { &mut self.sp.sp }
+    fn af(self) -> Self::Output {
+        self.af.as_u16_mut()
+    }
+    fn bc(self) -> Self::Output {
+        self.bc.as_u16_mut()
+    }
+    fn de(self) -> Self::Output {
+        self.de.as_u16_mut()
+    }
+    fn hl(self) -> Self::Output {
+        self.hl.as_u16_mut()
+    }
+    fn sp(self) -> Self::Output {
+        &mut self.sp.sp
+    }
 }
 
 pub trait RegisterPc {
@@ -120,12 +171,16 @@ pub trait RegisterPc {
 
 impl RegisterPc for Register {
     type Output = u16;
-    fn pc(self) -> Self::Output { self.pc.pc }
+    fn pc(self) -> Self::Output {
+        self.pc.pc
+    }
 }
 
 impl<'a> RegisterPc for &'a mut Register {
     type Output = &'a mut u16;
-    fn pc(self) -> Self::Output { &mut self.pc.pc }
+    fn pc(self) -> Self::Output {
+        &mut self.pc.pc
+    }
 }
 
 impl Register {
@@ -162,15 +217,27 @@ impl RegisterPair {
 
 #[test]
 fn test_as_u16() {
-    let rr = RegisterPair { lo: 0b0000_0111_u8, hi: 0b1111_0000_u8 };
+    let rr = RegisterPair {
+        lo: 0b0000_0111_u8,
+        hi: 0b1111_0000_u8,
+    };
     assert_eq!(0b1111_0000_0000_0111_u16, rr.as_u16());
 }
 
 #[test]
 fn test_as_u16_mut() {
-    let mut rr = RegisterPair { lo: 0b0000_0111_u8, hi: 0b1111_0000_u8 };
+    let mut rr = RegisterPair {
+        lo: 0b0000_0111_u8,
+        hi: 0b1111_0000_u8,
+    };
     *rr.as_u16_mut() = 0b0000_0000_0000_1111;
-    assert_eq!(RegisterPair { lo: 0b0000_1111, hi: 0 }, rr);
+    assert_eq!(
+        RegisterPair {
+            lo: 0b0000_1111,
+            hi: 0
+        },
+        rr
+    );
 }
 
 #[test]
