@@ -1,4 +1,7 @@
 extern crate num_traits;
+// extern crate num_derive;
+
+// use num_derive::{FromPrimitive, ToPrimitive};
 
 use super::*;
 use self::cpu::*;
@@ -438,6 +441,7 @@ impl mem::Write for R16 {
     }
 }
 
+// #[derive(FromPrimitive, ToPrimitive)]
 enum Carry {
     Without,
     With,
@@ -474,9 +478,21 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        Num: num_traits::PrimInt + num_traits::Unsigned + num_traits::FromPrimitive + num_traits::WrappingAdd,
     {
-        self.binary_op(lhs, rhs, |x, y, rf| (x + y, rf))
+        let carry_value = Num::from_u8(match carry {
+            Carry::With    => 1,
+            Carry::Without => 0,
+        }).expect("cannot use number smaller than u8");
+        self.binary_op(lhs, rhs, |x, y, mut f| {
+            let res = x.wrapping_add(&y).wrapping_add(&carry_value);
+            f[flag::Z].set_bool(res == Num::zero());
+            f[flag::N].reset();
+            f[flag::H].set_bool((x ^ y ^ res) & Num::from_u8(0x10).unwrap() != Num::zero());
+            // TODO: How to figure out overflow?
+            f[flag::C].set_bool(res & Num::from_u8(0x100).unwrap() != Num::zero());
+            (res, f)
+        })
     }
 
     fn sub<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
@@ -559,7 +575,7 @@ impl Instructions for GameBoy {
         Ok(1)
     }
 
-    fn binary_op<LHS, RHS, F, Num>(&mut self, lhs: LHS, rhs: RHS, func: F) -> Self::Output
+    fn binary_op<LHS, RHS, F, Num>(&mut self, lhs: LHS, rhs: RHS, op: F) -> Self::Output
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
@@ -568,7 +584,7 @@ impl Instructions for GameBoy {
     {
         let lhs_ = lhs.read(self);
         let rhs_ = rhs.read(self);
-        let (result, f) = func(lhs_, rhs_, *(self.cpu.register.f()));
+        let (result, mut f) = op(lhs_, rhs_, *(self.cpu.register.f()));
         *(self.cpu.register.f()) = f;
         lhs.write(self, result)?;
         Ok(1)
@@ -584,10 +600,10 @@ impl Instructions for GameBoy {
         let f = *(self.cpu.register.f());
         if match flags {
             Always => true,
-            Z => f[flag::Z].as_bool(),
-            N => f[flag::N].as_bool(),
-            H => f[flag::H].as_bool(),
-            C => f[flag::C].as_bool(),
+            Z  =>  f[flag::Z].as_bool(),
+            N  =>  f[flag::N].as_bool(),
+            H  =>  f[flag::H].as_bool(),
+            C  =>  f[flag::C].as_bool(),
             NZ => !f[flag::Z].as_bool(),
             NN => !f[flag::N].as_bool(),
             NH => !f[flag::H].as_bool(),

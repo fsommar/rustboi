@@ -1,7 +1,7 @@
 [package]
+authors = ["Fredrik Sommar <fred.sommar@gmail.com>"]
 name = "rustboi"
 version = "0.1.0"
-authors = ["Fredrik Sommar <fred.sommar@gmail.com>"]
-
 [dependencies]
+num-derive = "0.2.3"
 num-traits = "0.2.4"
