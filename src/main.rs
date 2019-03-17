@@ -3,7 +3,7 @@ extern crate num_derive;
 
 mod gameboy;
 
-use gameboy::GameBoy;
+use crate::gameboy::GameBoy;
 
 fn main() {
     let mut gb: GameBoy = Default::default();
