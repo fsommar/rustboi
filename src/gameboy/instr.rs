@@ -1,9 +1,10 @@
-extern crate num_traits;
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::ToPrimitive;
 
-use self::num_traits::{AsPrimitive, FromPrimitive, ToPrimitive};
-
-use self::cpu::*;
-use super::*;
+use crate::GameBoy;
+use crate::gameboy::cpu::flag;
+use crate::gameboy::cpu::register::*;
+use crate::gameboy::mem;
 
 pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
     match opcode {

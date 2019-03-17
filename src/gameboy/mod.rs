@@ -1,8 +1,8 @@
+use crate::gameboy::cpu::register::RegisterPc;
+
 mod cpu;
 mod instr;
 mod mem;
-
-use self::cpu::*;
 
 #[derive(Debug, Default)]
 pub(crate) struct GameBoy {

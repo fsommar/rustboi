@@ -1,9 +1,6 @@
-#[macro_use]
-extern crate num_derive;
+use crate::gameboy::GameBoy;
 
 mod gameboy;
-
-use crate::gameboy::GameBoy;
 
 fn main() {
     let mut gb: GameBoy = Default::default();

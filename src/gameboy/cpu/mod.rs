@@ -1,9 +1,7 @@
 pub(crate) mod flag;
-mod register;
-
-pub(crate) use self::register::*;
+pub(crate) mod register;
 
 #[derive(Debug, Default)]
 pub struct CPU {
-    pub(crate) register: Register,
+    pub(crate) register: register::Register,
 }

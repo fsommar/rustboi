@@ -3,9 +3,6 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-#[cfg(test)]
-use super::flag;
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(crate) struct Register {
@@ -218,7 +215,7 @@ impl RegisterPair {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use super::super::flag;
 
     #[test]
     fn test_as_u16() {
