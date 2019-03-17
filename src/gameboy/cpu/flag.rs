@@ -106,7 +106,7 @@ impl<T: Flag> Index<T> for RegisterF {
 // methods, e.g. `register.f()[flag::Z].set()` for the same effect as the previous assignment.
 //
 // I don't see it as a big drawback, but it'd be interesting to see if it's possible out of mere
-// curiousity if nothing else.
+// curiosity if nothing else.
 impl<T: Flag> IndexMut<T> for RegisterF {
     // T is only used as an indicator of which `Flag` to use; the (zero-sized) value is never used.
     fn index_mut(&mut self, _: T) -> &mut Value<T> {

@@ -1,6 +1,6 @@
 extern crate num_traits;
 
-use self::num_traits::{FromPrimitive, ToPrimitive};
+use self::num_traits::{AsPrimitive, FromPrimitive, ToPrimitive};
 
 use self::cpu::*;
 use super::*;
@@ -18,7 +18,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         // so TBD if it should be special cased or if there are other similar instructions
         // but not necessarily LD -- e.g. PUSH or POP?
         // 0x08 => gameboy.load(AddrOf(Immediate16), R16::SP),
-        0x09 => gameboy.add16(R16::HL, R16::BC, Carry::Without),
+        0x09 => gameboy.add(R16::HL, R16::BC, Carry::Without),
         0x0A => gameboy.load(R8::A, AddrOf(R16::BC)),
         0x0B => gameboy.dec16(R16::BC),
         0x0C => gameboy.inc(R8::C),
@@ -32,7 +32,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x15 => gameboy.dec(R8::D),
         0x16 => gameboy.load(R8::D, Immediate8),
         0x18 => gameboy.jump(Flags::Always, Immediate8),
-        0x19 => gameboy.add16(R16::HL, R16::DE, Carry::Without),
+        0x19 => gameboy.add(R16::HL, R16::DE, Carry::Without),
         0x1A => gameboy.load(R8::A, AddrOf(R16::DE)),
         0x1B => gameboy.dec16(R16::DE),
         0x1C => gameboy.inc(R8::C),
@@ -46,7 +46,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x25 => gameboy.dec(R8::H),
         0x26 => gameboy.load(R8::H, Immediate8),
         0x28 => gameboy.jump(Flags::Z, Immediate8),
-        0x29 => gameboy.add16(R16::HL, R16::HL, Carry::Without),
+        0x29 => gameboy.add(R16::HL, R16::HL, Carry::Without),
         0x2A => gameboy.load(R8::A, AddrOf(PostInc(R16::HL))),
         0x2B => gameboy.dec16(R16::HL),
         0x2C => gameboy.inc(R8::L),
@@ -60,7 +60,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0x35 => gameboy.dec(AddrOf(R16::HL)),
         0x36 => gameboy.load(AddrOf(R16::HL), Immediate8),
         0x38 => gameboy.jump(Flags::C, Immediate8),
-        0x39 => gameboy.add16(R16::HL, R16::SP, Carry::Without),
+        0x39 => gameboy.add(R16::HL, R16::SP, Carry::Without),
         0x3A => gameboy.load(R8::A, AddrOf(PostDec(R16::HL))),
         0x3B => gameboy.dec16(R16::SP),
         0x3C => gameboy.inc(R8::A),
@@ -196,15 +196,18 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0xBF => gameboy.cmp(R8::A, R8::A),
         0xC2 => gameboy.jump(Flags::NZ, Immediate16),
         0xC3 => gameboy.jump(Flags::Always, Immediate16),
+        0xC5 => gameboy.push(R16::BC),
         0xC6 => gameboy.add(R8::A, Immediate8, Carry::Without),
         0xCA => gameboy.jump(Flags::Z, Immediate16),
         0xCE => gameboy.add(R8::A, Immediate8, Carry::With),
         0xD2 => gameboy.jump(Flags::NC, Immediate16),
+        0xD5 => gameboy.push(R16::DE),
         0xD6 => gameboy.sub(R8::A, Immediate8, Carry::Without),
         0xDA => gameboy.jump(Flags::C, Immediate16),
         0xDE => gameboy.sub(R8::A, Immediate8, Carry::With),
         0xE0 => gameboy.load(AddrOf(Immediate8), R8::A),
         0xE2 => gameboy.load(AddrOf(R8::C), R8::A),
+        0xE5 => gameboy.push(R16::HL),
         0xE6 => gameboy.and(R8::A, Immediate8),
         // TODO: Create separate method for this, since its behavior is unique
         // 0xE8 => gameboy.add(R16::SP, Immediate8, Carry::Without),
@@ -214,6 +217,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
         0xF2 => gameboy.load(R8::A, AddrOf(R8::C)),
         0xF3 => gameboy.set_interrupt(Interrupt::Disable),
         0xF6 => gameboy.or(R8::A, Immediate8),
+        0xF5 => gameboy.push(R16::AF),
         0xF8 => gameboy.load(R16::HL, Plus(R16::SP, Immediate8)),
         0xF9 => gameboy.load(R16::SP, R16::HL),
         0xFA => gameboy.load(R8::A, AddrOf(Immediate16)),
@@ -232,19 +236,77 @@ struct AddrOf<T>(T);
 struct Immediate8;
 struct Immediate16;
 
-trait AsAddress {
-    fn as_address(self) -> u16;
+trait AsAddr {
+    #[inline]
+    fn as_addr(&self) -> u16;
 }
 
-impl AsAddress for u16 {
-    fn as_address(self) -> u16 {
-        self
+impl AsAddr for u16 {
+    fn as_addr(&self) -> u16 {
+        *self
     }
 }
 
-impl AsAddress for u8 {
-    fn as_address(self) -> u16 {
-        self as u16 + 0xff
+impl AsAddr for u8 {
+    fn as_addr(&self) -> u16 {
+        *self as u16 + 0xff
+    }
+}
+
+trait Integer: num_traits::PrimInt + num_traits::Unsigned {
+    #[inline]
+    fn from_carry(carry: Carry) -> Self;
+    #[inline]
+    fn half_carry_flag() -> Self;
+    #[inline]
+    fn set_zero_flag(f: &mut RegisterF, res: Self);
+    #[inline]
+    fn overflowing_add(self, rhs: Self) -> (Self, bool);
+    #[inline]
+    fn overflowing_sub(self, rhs: Self) -> (Self, bool);
+}
+
+impl Integer for u16 {
+    fn from_carry(carry: Carry) -> Self {
+        carry.to_u16().unwrap()
+    }
+
+    fn half_carry_flag() -> Self {
+        0x100
+    }
+
+    fn set_zero_flag(_f: &mut RegisterF, _res: Self) {
+        // Do nothing
+    }
+
+    fn overflowing_add(self, rhs: Self) -> (Self, bool) {
+        u16::overflowing_add(self, rhs)
+    }
+
+    fn overflowing_sub(self, rhs: Self) -> (Self, bool) {
+        u16::overflowing_sub(self, rhs)
+    }
+}
+
+impl Integer for u8 {
+    fn from_carry(carry: Carry) -> Self {
+        carry.to_u8().unwrap()
+    }
+
+    fn half_carry_flag() -> u8 {
+        0x10
+    }
+
+    fn set_zero_flag(f: &mut RegisterF, res: Self) {
+        f[flag::Z].set_bool(res == 0);
+    }
+
+    fn overflowing_add(self, rhs: Self) -> (Self, bool) {
+        u8::overflowing_add(self, rhs)
+    }
+
+    fn overflowing_sub(self, rhs: Self) -> (Self, bool) {
+        u8::overflowing_sub(self, rhs)
     }
 }
 
@@ -293,18 +355,18 @@ where
     }
 }
 
-impl<A: AsAddress, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
+impl<A: AsAddr, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
     type Out = u8;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
-        let addr = self.0.read(gb).as_address();
+        let addr = self.0.read(gb).as_addr();
         gb.mmu.read_u8(addr)
     }
 }
 
-impl<A: AsAddress, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
+impl<A: AsAddr, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
     type In = u8;
     fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
-        let addr = self.0.read(gb).as_address();
+        let addr = self.0.read(gb).as_addr();
         gb.mmu.write_u8(addr, value);
         Ok(())
     }
@@ -454,58 +516,36 @@ enum Interrupt {
 trait Instructions {
     type Output;
 
-    fn load<W, R, V>(&mut self, W, R) -> Self::Output
+    fn load<W, R, V>(&mut self, _: W, _: R) -> Self::Output
     where
         W: mem::Write<In = V>,
         R: mem::Read<Out = V>;
 
-    fn binary_op<LHS, RHS, F, Num>(&mut self, LHS, RHS, F) -> Self::Output
+    fn binary_op<LHS, RHS, F, Num>(&mut self, _: LHS, _: RHS, _: F) -> Self::Output
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
         F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
         Num: num_traits::PrimInt + num_traits::Unsigned;
 
-    fn jump<Offset, V>(&mut self, Flags, Offset) -> Self::Output
+    fn jump<Offset, V>(&mut self, _: Flags, _: Offset) -> Self::Output
     where
         V: Into<u16>,
         Offset: mem::Read<Out = V>;
 
-    fn set_interrupt(&mut self, Interrupt) -> Self::Output;
+    fn set_interrupt(&mut self, _: Interrupt) -> Self::Output;
 
-    // TODO: Combine add and add16 (?)
-    fn add<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
+    fn add<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
     where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
+        RHS: mem::Read<Out = Num>,
+        Num: Integer,
     {
-        let carry = carry.to_u8().unwrap();
         self.binary_op(lhs, rhs, |x, y, mut f| {
-            // TODO: Figure out overflow in a nicer way.
             let (res, overflow1) = x.overflowing_add(y);
-            // FIXME: Is carry included in the overflow calculation?
-            let (res, overflow2) = res.overflowing_add(carry);
-            f[flag::Z].set_bool(res == 0);
-            f[flag::N].reset();
-            f[flag::H].set_bool((x ^ y ^ res) & 0x10 != 0);
-            f[flag::C].set_bool(overflow1 || overflow2);
-            (res, f)
-        })
-    }
-
-    fn add16<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
-    where
-        LHS: mem::Read<Out = u16> + mem::Write<In = u16>,
-        RHS: mem::Read<Out = u16>,
-    {
-        let carry = carry.to_u16().unwrap();
-        self.binary_op(lhs, rhs, |x, y, mut f| {
-            // TODO: Figure out overflow in a nicer way.
-            let (res, overflow1) = x.overflowing_add(y);
-            // FIXME: Is carry included in the overflow calculation?
-            let (res, overflow2) = res.overflowing_add(carry);
-            f[flag::N].reset();
-            f[flag::H].set_bool((x ^ y ^ res) & 0x100 != 0);
+            let (res, overflow2) = res.overflowing_add(Num::from_carry(carry));
+            Num::set_zero_flag(&mut f, res);
+            f[flag::H].set_bool((x ^ y ^ res) & Num::half_carry_flag() != Num::zero());
             f[flag::C].set_bool(overflow1 || overflow2);
             (res, f)
         })
@@ -518,13 +558,11 @@ trait Instructions {
     {
         let carry = carry.to_u8().unwrap();
         self.binary_op(lhs, rhs, |x, y, mut f| {
-            // TODO: Figure out overflow in a nicer way.
             let (res, overflow1) = x.overflowing_sub(y);
-            // FIXME: Is carry included in the overflow calculation?
             let (res, overflow2) = res.overflowing_sub(carry);
             f[flag::Z].set_bool(res == 0);
             f[flag::N].set();
-            f[flag::H].set_bool((x ^ y ^ res) & 0x10 != 0);
+            f[flag::H].set_bool((x ^ y ^ res) & u8::half_carry_flag() != 0);
             f[flag::C].set_bool(overflow1 || overflow2);
             (res, f)
         })
@@ -592,7 +630,7 @@ trait Instructions {
             let res = x.wrapping_add(y);
             f[flag::Z].set_bool(res == 0);
             f[flag::N].reset();
-            f[flag::H].set_bool((x ^ y ^ res) & 0x10 != 0);
+            f[flag::H].set_bool((x ^ y ^ res) & u8::half_carry_flag() != 0);
             (res, f)
         })
     }
@@ -612,7 +650,7 @@ trait Instructions {
             let res = x.wrapping_sub(y);
             f[flag::Z].set_bool(res == 0);
             f[flag::N].set();
-            f[flag::H].set_bool((x ^ y ^ res) & 0x10 != 0);
+            f[flag::H].set_bool((x ^ y ^ res) & u8::half_carry_flag() != 0);
             (res, f)
         })
     }
@@ -624,6 +662,9 @@ trait Instructions {
         self.binary_op(lhs, Constant(1), |x, y, f| (x - y, f))
     }
 
+    fn push<R>(&mut self, from: R) -> Self::Output
+    where
+        R: mem::Read<Out = u16>;
     fn nop(&mut self) -> Self::Output;
     fn halt(&mut self) -> Self::Output;
     fn stop(&mut self) -> Self::Output;
@@ -654,6 +695,7 @@ impl Instructions for GameBoy {
         let (result, f) = op(lhs_, rhs_, *(self.cpu.register.f()));
         *(self.cpu.register.f()) = f;
         lhs.write(self, result)?;
+        // FIXME: Different cycles for u16 and u8 ops, e.g. ADD.
         Ok(1)
     }
 
@@ -683,6 +725,21 @@ impl Instructions for GameBoy {
         }
     }
 
+    fn set_interrupt(&mut self, _: Interrupt) -> Self::Output {
+        unimplemented!()
+    }
+
+    fn push<R>(&mut self, from: R) -> Self::Output
+    where
+        R: mem::Read<Out = u16>,
+    {
+        let from = from.read(self);
+        let sp = &mut self.cpu.register.sp();
+        self.mmu.write_u16(*sp, from);
+        *sp += 2;
+        Ok(4)
+    }
+
     fn nop(&mut self) -> Self::Output {
         Ok(1)
     }
@@ -692,10 +749,6 @@ impl Instructions for GameBoy {
     }
 
     fn stop(&mut self) -> Self::Output {
-        unimplemented!()
-    }
-
-    fn set_interrupt(&mut self, _: Interrupt) -> Self::Output {
         unimplemented!()
     }
 }

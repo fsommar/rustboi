@@ -61,10 +61,10 @@ fn test_write_u16() {
 
 pub(crate) trait Read {
     type Out;
-    fn read(&self, &mut super::GameBoy) -> Self::Out;
+    fn read(&self, _: &mut super::GameBoy) -> Self::Out;
 }
 
 pub(crate) trait Write {
     type In;
-    fn write(&self, &mut super::GameBoy, value: Self::In) -> Result<(), String>;
+    fn write(&self, _: &mut super::GameBoy, value: Self::In) -> Result<(), String>;
 }
