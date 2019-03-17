@@ -215,63 +215,70 @@ impl RegisterPair {
     }
 }
 
-#[test]
-fn test_as_u16() {
-    let rr = RegisterPair {
-        lo: 0b0000_0111_u8,
-        hi: 0b1111_0000_u8,
-    };
-    assert_eq!(0b1111_0000_0000_0111_u16, rr.as_u16());
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn test_as_u16() {
+        let rr = RegisterPair {
+            lo: 0b0000_0111_u8,
+            hi: 0b1111_0000_u8,
+        };
+        assert_eq!(0b1111_0000_0000_0111_u16, rr.as_u16());
+    }
+
+    #[test]
+    fn test_as_u16_mut() {
+        let mut rr = RegisterPair {
+            lo: 0b0000_0111_u8,
+            hi: 0b1111_0000_u8,
+        };
+        *rr.as_u16_mut() = 0b0000_0000_0000_1111;
+        assert_eq!(
+            RegisterPair {
+                lo: 0b0000_1111,
+                hi: 0,
+            },
+            rr
+        );
+    }
+
+    #[test]
+    fn test_lo_hi_mut() {
+        let mut rr: RegisterPair = Default::default();
+        *rr.lo_mut() = 5;
+        assert_eq!(rr, RegisterPair { lo: 5, hi: 0 });
+        *rr.hi_mut() = 10;
+        assert_eq!(rr, RegisterPair { lo: 5, hi: 10 });
+    }
+
+    #[test]
+    fn test_struct_sizes() {
+        assert_eq!(1, std::mem::size_of::<RegisterF>());
+        assert_eq!(2, std::mem::size_of::<StackPointer>());
+        assert_eq!(2, std::mem::size_of::<ProgramCounter>());
+        assert_eq!(2, std::mem::size_of::<RegisterPair>());
+        assert_eq!(12, std::mem::size_of::<Register>());
+    }
+
+    #[test]
+    fn test_get_f_register() {
+        let mut register: Register = Default::default();
+        assert_eq!(false, register.f()[flag::C].into());
+        assert_eq!(false, register.f()[flag::Z].into());
+        assert_eq!(false, register.f()[flag::H].into());
+        register.f()[flag::Z].toggle();
+        register.f()[flag::C].set();
+        assert_eq!(true, register.f()[flag::C].into());
+        assert_eq!(true, register.f()[flag::Z].into());
+        assert_eq!(false, register.f()[flag::H].into());
+        register.f()[flag::Z].toggle();
+        register.f()[flag::C].reset();
+        assert_eq!(false, register.f()[flag::C].into());
+        assert_eq!(false, register.f()[flag::Z].into());
+        assert_eq!(false, register.f()[flag::H].into());
+    }
 }
 
-#[test]
-fn test_as_u16_mut() {
-    let mut rr = RegisterPair {
-        lo: 0b0000_0111_u8,
-        hi: 0b1111_0000_u8,
-    };
-    *rr.as_u16_mut() = 0b0000_0000_0000_1111;
-    assert_eq!(
-        RegisterPair {
-            lo: 0b0000_1111,
-            hi: 0
-        },
-        rr
-    );
-}
-
-#[test]
-fn test_lo_hi_mut() {
-    let mut rr: RegisterPair = Default::default();
-    *rr.lo_mut() = 5;
-    assert_eq!(rr, RegisterPair { lo: 5, hi: 0 });
-    *rr.hi_mut() = 10;
-    assert_eq!(rr, RegisterPair { lo: 5, hi: 10 });
-}
-
-#[test]
-fn test_struct_sizes() {
-    assert_eq!(1, std::mem::size_of::<RegisterF>());
-    assert_eq!(2, std::mem::size_of::<StackPointer>());
-    assert_eq!(2, std::mem::size_of::<ProgramCounter>());
-    assert_eq!(2, std::mem::size_of::<RegisterPair>());
-    assert_eq!(12, std::mem::size_of::<Register>());
-}
-
-#[test]
-fn test_get_f_register() {
-    let mut register: Register = Default::default();
-    assert_eq!(false, register.f()[flag::C].into());
-    assert_eq!(false, register.f()[flag::Z].into());
-    assert_eq!(false, register.f()[flag::H].into());
-    register.f()[flag::Z].toggle();
-    register.f()[flag::C].set();
-    assert_eq!(true, register.f()[flag::C].into());
-    assert_eq!(true, register.f()[flag::Z].into());
-    assert_eq!(false, register.f()[flag::H].into());
-    register.f()[flag::Z].toggle();
-    register.f()[flag::C].reset();
-    assert_eq!(false, register.f()[flag::C].into());
-    assert_eq!(false, register.f()[flag::Z].into());
-    assert_eq!(false, register.f()[flag::H].into());
-}
