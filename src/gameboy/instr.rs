@@ -229,12 +229,19 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
 }
 
 struct Plus<T, U>(T, U);
+
 struct PostDec<T>(T);
+
 struct PostInc<T>(T);
+
 struct NoWrite<T>(T);
+
 struct Constant<T>(T);
+
 struct AddrOf<T>(T);
+
 struct Immediate8;
+
 struct Immediate16;
 
 trait AsAddr {
@@ -312,11 +319,11 @@ impl Integer for u8 {
 }
 
 impl<T, U, UNum, Num> mem::Read for Plus<T, U>
-where
-    T: mem::Read<Out = Num>,
-    U: mem::Read<Out = UNum>,
-    UNum: Into<Num>,
-    Num: num_traits::PrimInt + num_traits::Unsigned,
+    where
+        T: mem::Read<Out=Num>,
+        U: mem::Read<Out=UNum>,
+        UNum: Into<Num>,
+        Num: num_traits::PrimInt + num_traits::Unsigned,
 {
     type Out = Num;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
@@ -327,9 +334,9 @@ where
 }
 
 impl<W, T> mem::Read for PostInc<W>
-where
-    T: num_traits::PrimInt + num_traits::Unsigned,
-    W: mem::Write<In = T> + mem::Read<Out = T>,
+    where
+        T: num_traits::PrimInt + num_traits::Unsigned,
+        W: mem::Write<In=T> + mem::Read<Out=T>,
 {
     type Out = T;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
@@ -342,9 +349,9 @@ where
 }
 
 impl<W, T> mem::Read for PostDec<W>
-where
-    T: num_traits::PrimInt + num_traits::Unsigned,
-    W: mem::Write<In = T> + mem::Read<Out = T>,
+    where
+        T: num_traits::PrimInt + num_traits::Unsigned,
+        W: mem::Write<In=T> + mem::Read<Out=T>,
 {
     type Out = T;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
@@ -356,7 +363,7 @@ where
     }
 }
 
-impl<A: AsAddr, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
+impl<A: AsAddr, R: mem::Read<Out=A>> mem::Read for AddrOf<R> {
     type Out = u8;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
         let addr = self.0.read(gb).as_addr();
@@ -364,7 +371,7 @@ impl<A: AsAddr, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
     }
 }
 
-impl<A: AsAddr, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
+impl<A: AsAddr, R: mem::Read<Out=A>> mem::Write for AddrOf<R> {
     type In = u8;
     fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
         let addr = self.0.read(gb).as_addr();
@@ -373,7 +380,7 @@ impl<A: AsAddr, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
     }
 }
 
-impl<V, T: mem::Write<In = V>> mem::Write for NoWrite<T> {
+impl<V, T: mem::Write<In=V>> mem::Write for NoWrite<T> {
     type In = V;
     fn write(&self, _: &mut GameBoy, _: Self::In) -> Result<(), String> {
         // NoWrite causes write to be a NOOP.
@@ -381,7 +388,7 @@ impl<V, T: mem::Write<In = V>> mem::Write for NoWrite<T> {
     }
 }
 
-impl<V, T: mem::Read<Out = V>> mem::Read for NoWrite<T> {
+impl<V, T: mem::Read<Out=V>> mem::Read for NoWrite<T> {
     type Out = V;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
         self.0.read(gb)
@@ -518,29 +525,29 @@ trait Instructions {
     type Output;
 
     fn load<W, R, V>(&mut self, _: W, _: R) -> Self::Output
-    where
-        W: mem::Write<In = V>,
-        R: mem::Read<Out = V>;
+        where
+            W: mem::Write<In=V>,
+            R: mem::Read<Out=V>;
 
     fn binary_op<LHS, RHS, F, Num>(&mut self, _: LHS, _: RHS, _: F) -> Self::Output
-    where
-        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
-        RHS: mem::Read<Out = Num>,
-        F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
-        Num: num_traits::PrimInt + num_traits::Unsigned;
+        where
+            LHS: mem::Read<Out=Num> + mem::Write<In=Num>,
+            RHS: mem::Read<Out=Num>,
+            F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
+            Num: num_traits::PrimInt + num_traits::Unsigned;
 
     fn jump<Offset, V>(&mut self, _: Flags, _: Offset) -> Self::Output
-    where
-        V: Into<u16>,
-        Offset: mem::Read<Out = V>;
+        where
+            V: Into<u16>,
+            Offset: mem::Read<Out=V>;
 
     fn set_interrupt(&mut self, _: Interrupt) -> Self::Output;
 
     fn add<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
-    where
-        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
-        RHS: mem::Read<Out = Num>,
-        Num: Integer,
+        where
+            LHS: mem::Read<Out=Num> + mem::Write<In=Num>,
+            RHS: mem::Read<Out=Num>,
+            Num: Integer,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let (res, overflow1) = x.overflowing_add(y);
@@ -553,9 +560,9 @@ trait Instructions {
     }
 
     fn sub<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS, carry: Carry) -> Self::Output
-    where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        where
+            LHS: mem::Read<Out=u8> + mem::Write<In=u8>,
+            RHS: mem::Read<Out=u8>,
     {
         let carry = carry.to_u8().unwrap();
         self.binary_op(lhs, rhs, |x, y, mut f| {
@@ -570,10 +577,10 @@ trait Instructions {
     }
 
     fn xor<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
-    where
-        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
-        RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        where
+            LHS: mem::Read<Out=Num> + mem::Write<In=Num>,
+            RHS: mem::Read<Out=Num>,
+            Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x ^ y;
@@ -583,10 +590,10 @@ trait Instructions {
     }
 
     fn and<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
-    where
-        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
-        RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        where
+            LHS: mem::Read<Out=Num> + mem::Write<In=Num>,
+            RHS: mem::Read<Out=Num>,
+            Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x & y;
@@ -599,10 +606,10 @@ trait Instructions {
     }
 
     fn or<LHS, RHS, Num>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
-    where
-        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
-        RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        where
+            LHS: mem::Read<Out=Num> + mem::Write<In=Num>,
+            RHS: mem::Read<Out=Num>,
+            Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x | y;
@@ -615,17 +622,17 @@ trait Instructions {
     }
 
     fn cmp<LHS, RHS>(&mut self, lhs: LHS, rhs: RHS) -> Self::Output
-    where
-        LHS: mem::Read<Out = u8> + mem::Write<In = u8>,
-        RHS: mem::Read<Out = u8>,
+        where
+            LHS: mem::Read<Out=u8> + mem::Write<In=u8>,
+            RHS: mem::Read<Out=u8>,
     {
         // Ensure that the result is not written to the LHS
         self.sub(NoWrite(lhs), rhs, Carry::Without)
     }
 
     fn inc<T>(&mut self, lhs: T) -> Self::Output
-    where
-        T: mem::Read<Out = u8> + mem::Write<In = u8>,
+        where
+            T: mem::Read<Out=u8> + mem::Write<In=u8>,
     {
         self.binary_op(lhs, Constant(1), |x, y, mut f| {
             let res = x.wrapping_add(y);
@@ -637,15 +644,15 @@ trait Instructions {
     }
 
     fn inc16<T>(&mut self, lhs: T) -> Self::Output
-    where
-        T: mem::Read<Out = u16> + mem::Write<In = u16>,
+        where
+            T: mem::Read<Out=u16> + mem::Write<In=u16>,
     {
         self.binary_op(lhs, Constant(1), |x, y, f| (x + y, f))
     }
 
     fn dec<T>(&mut self, lhs: T) -> Self::Output
-    where
-        T: mem::Read<Out = u8> + mem::Write<In = u8>,
+        where
+            T: mem::Read<Out=u8> + mem::Write<In=u8>,
     {
         self.binary_op(lhs, Constant(1), |x, y, mut f| {
             let res = x.wrapping_sub(y);
@@ -657,15 +664,15 @@ trait Instructions {
     }
 
     fn dec16<T>(&mut self, lhs: T) -> Self::Output
-    where
-        T: mem::Read<Out = u16> + mem::Write<In = u16>,
+        where
+            T: mem::Read<Out=u16> + mem::Write<In=u16>,
     {
         self.binary_op(lhs, Constant(1), |x, y, f| (x - y, f))
     }
 
     fn push<R>(&mut self, from: R) -> Self::Output
-    where
-        R: mem::Read<Out = u16>;
+        where
+            R: mem::Read<Out=u16>;
     fn nop(&mut self) -> Self::Output;
     fn halt(&mut self) -> Self::Output;
     fn stop(&mut self) -> Self::Output;
@@ -675,9 +682,9 @@ impl Instructions for GameBoy {
     type Output = Result<u8, String>;
 
     fn load<W, R, V>(&mut self, to: W, from: R) -> Self::Output
-    where
-        W: mem::Write<In = V>,
-        R: mem::Read<Out = V>,
+        where
+            W: mem::Write<In=V>,
+            R: mem::Read<Out=V>,
     {
         let value: V = from.read(self);
         to.write(self, value)?;
@@ -685,11 +692,11 @@ impl Instructions for GameBoy {
     }
 
     fn binary_op<LHS, RHS, F, Num>(&mut self, lhs: LHS, rhs: RHS, op: F) -> Self::Output
-    where
-        LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
-        RHS: mem::Read<Out = Num>,
-        F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        where
+            LHS: mem::Read<Out=Num> + mem::Write<In=Num>,
+            RHS: mem::Read<Out=Num>,
+            F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
+            Num: num_traits::PrimInt + num_traits::Unsigned,
     {
         let lhs_ = lhs.read(self);
         let rhs_ = rhs.read(self);
@@ -701,9 +708,9 @@ impl Instructions for GameBoy {
     }
 
     fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
-    where
-        V: Into<u16>,
-        Offset: mem::Read<Out = V>,
+        where
+            V: Into<u16>,
+            Offset: mem::Read<Out=V>,
     {
         use self::Flags::*;
         let offset_ = offset.read(self);
@@ -731,8 +738,8 @@ impl Instructions for GameBoy {
     }
 
     fn push<R>(&mut self, from: R) -> Self::Output
-    where
-        R: mem::Read<Out = u16>,
+        where
+            R: mem::Read<Out=u16>,
     {
         let from = from.read(self);
         let sp = &mut self.cpu.register.sp();
