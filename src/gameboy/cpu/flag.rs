@@ -50,12 +50,12 @@ flags_with_offsets![Z: 7, N: 6, H: 5, C: 4, _3: 3, _2: 2, _1: 1, _0: 0];
 impl<T: Flag> Value<T> {
     // Internally used constructor to abstract the necessary transmute to convert from register F.
     fn new_mut(rf: &mut RegisterF) -> &mut Value<T> {
-        unsafe { std::mem::transmute(rf) }
+        unsafe { &mut *(rf as *mut RegisterF as *mut Value<T>) }
     }
 
     // Internally used constructor to abstract the necessary transmute to convert from register F.
     fn new(rf: &RegisterF) -> &Value<T> {
-        unsafe { std::mem::transmute(rf) }
+        unsafe { &*(rf as *const RegisterF as *const Value<T>) }
     }
 
     /// Sets flag `T` in register F to the provided bool.
@@ -63,23 +63,24 @@ impl<T: Flag> Value<T> {
     /// `set` and `reset` should be preferred whenever possible, since they more clearly show
     /// intent.
     pub fn set_bool(&mut self, value: bool) {
-        let rf: &mut RegisterF = unsafe { std::mem::transmute(self) };
+        let rf: &mut RegisterF = unsafe { &mut *(self as *mut Value<T> as *mut RegisterF) };
         let offset = <T as Flag>::offset();
-        *(&mut rf.f) = rf.f & !(1u8 << offset) | ((value as u8) << offset);
+        rf.f &= !(1u8 << offset);
+        rf.f |= (value as u8) << offset;
     }
 
     /// Reads the flag as a bool.
     pub fn as_bool(&self) -> bool {
-        let rf: &RegisterF = unsafe { std::mem::transmute(self) };
+        let rf: &RegisterF = unsafe { &*(self as *const Value<T> as *const RegisterF) };
         let offset = <T as Flag>::offset();
         (rf.f >> offset) & 1u8 != 0
     }
 
     /// Toggles the flag, i.e. `false` => `true` or vice versa.
     pub fn toggle(&mut self) {
-        let rf: &mut RegisterF = unsafe { std::mem::transmute(self) };
+        let rf: &mut RegisterF = unsafe { &mut *(self as *mut Value<T> as *mut RegisterF) };
         let offset = <T as Flag>::offset();
-        *(&mut rf.f) = rf.f ^ (1u8 << offset);
+        rf.f ^= 1u8 << offset;
     }
 
     /// Sets the flag to `true`.

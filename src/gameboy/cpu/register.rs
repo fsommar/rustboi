@@ -182,12 +182,14 @@ impl<'a> RegisterPc for &'a mut Register {
 
 impl Register {
     pub(crate) fn f(&mut self) -> &mut RegisterF {
-        unsafe { std::mem::transmute(self.af.lo_mut()) }
+        unsafe { &mut *(self.af.lo_mut() as *mut u8 as *mut RegisterF) }
     }
 }
 
+// RegisterPair will always be two u8 and repr(C), and therefore can be represented as u16.
+#[allow(clippy::cast_ptr_alignment)]
 impl RegisterPair {
-    fn lo(&self) -> u8 {
+    fn lo(self) -> u8 {
         self.lo
     }
 
@@ -199,23 +201,23 @@ impl RegisterPair {
         &mut self.hi
     }
 
-    fn hi(&self) -> u8 {
+    fn hi(self) -> u8 {
         self.hi
     }
 
-    pub(crate) fn as_u16(&self) -> u16 {
-        *unsafe { std::mem::transmute::<&Self, &u16>(self) }
+    pub(crate) fn as_u16(self) -> u16 {
+        unsafe { *(&self as *const RegisterPair as *const u16) }
     }
 
     pub(crate) fn as_u16_mut(&mut self) -> &mut u16 {
-        unsafe { std::mem::transmute::<&mut Self, &mut u16>(self) }
+        unsafe { &mut *(self as *mut RegisterPair as *mut u16) }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::flag;
+    use super::*;
 
     #[test]
     fn test_as_u16() {
@@ -278,4 +280,3 @@ mod tests {
         assert_eq!(false, register.f()[flag::H].into());
     }
 }
-

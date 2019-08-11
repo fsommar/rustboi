@@ -24,7 +24,7 @@ impl MMU {
     }
 
     pub fn read_u16(&self, addr: u16) -> u16 {
-        self.read_u8(addr + 1) as u16 | (self.read_u8(addr) as u16) << 8
+        u16::from(self.read_u8(addr + 1)) | u16::from(self.read_u8(addr)) << 8
     }
 
     pub fn write_u16(&mut self, addr: u16, value: u16) {

@@ -25,7 +25,7 @@ impl GameBoy {
 
     fn advance_pc(&mut self, steps: u8) {
         let pc: &mut u16 = &mut self.cpu.register.pc();
-        *pc += steps as u16;
+        *pc += u16::from(steps);
     }
 
     fn execute(&mut self, opcode: u8) -> Result<(), String> {
