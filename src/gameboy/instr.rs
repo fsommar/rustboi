@@ -444,14 +444,14 @@ impl<T: Copy> mem::Read for Constant<T> {
 impl mem::Read for Immediate8 {
     type Out = u8;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
-        gb.mmu.read_u8(gb.cpu.register.pc())
+        gb.mmu.read_u8(*gb.cpu.register.pc)
     }
 }
 
 impl mem::Read for Immediate16 {
     type Out = u16;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
-        gb.mmu.read_u16(gb.cpu.register.pc())
+        gb.mmu.read_u16(*gb.cpu.register.pc)
     }
 }
 
@@ -524,11 +524,11 @@ impl mem::Read for R16 {
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
         use self::R16::*;
         match self {
-            AF => gb.cpu.register.af(),
-            BC => gb.cpu.register.bc(),
-            DE => gb.cpu.register.de(),
-            HL => gb.cpu.register.hl(),
-            SP => gb.cpu.register.sp(),
+            AF => *gb.cpu.register.af,
+            BC => *gb.cpu.register.bc,
+            DE => *gb.cpu.register.de,
+            HL => *gb.cpu.register.hl,
+            SP => *gb.cpu.register.sp,
         }
     }
 }
@@ -538,11 +538,11 @@ impl mem::Write for R16 {
     fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
         use self::R16::*;
         let reg: &mut u16 = &mut match self {
-            AF => gb.cpu.register.af(),
-            BC => gb.cpu.register.bc(),
-            DE => gb.cpu.register.de(),
-            HL => gb.cpu.register.hl(),
-            SP => gb.cpu.register.sp(),
+            AF => *gb.cpu.register.af,
+            BC => *gb.cpu.register.bc,
+            DE => *gb.cpu.register.de,
+            HL => *gb.cpu.register.hl,
+            SP => *gb.cpu.register.sp,
         };
         *reg = value;
         Ok(())
@@ -560,6 +560,18 @@ enum Interrupt {
     Disable,
 }
 
+trait Cycles {
+    const CYCLES: u8;
+}
+
+impl Cycles for u8 {
+    const CYCLES: u8 = 1;
+}
+
+impl Cycles for u16 {
+    const CYCLES: u8 = 2;
+}
+
 trait Instructions {
     type Output;
 
@@ -573,7 +585,7 @@ trait Instructions {
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
         F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
-        Num: num_traits::PrimInt + num_traits::Unsigned;
+        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles;
 
     fn jump<Offset, V>(&mut self, _: Flags, _: Offset) -> Self::Output
     where
@@ -586,7 +598,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: Integer,
+        Num: Integer + Cycles,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let (res, overflow1) = x.overflowing_add(y);
@@ -619,7 +631,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x ^ y;
@@ -632,7 +644,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x & y;
@@ -648,7 +660,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x | y;
@@ -735,18 +747,16 @@ impl Instructions for GameBoy {
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
         F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
-        Num: num_traits::PrimInt + num_traits::Unsigned,
+        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
     {
         let lhs_ = lhs.read(self);
         let rhs_ = rhs.read(self);
         let (result, f) = op(lhs_, rhs_, *(self.cpu.register.f()));
         *(self.cpu.register.f()) = f;
         lhs.write(self, result)?;
-        // FIXME: Different cycles for u16 and u8 ops, e.g. ADD.
-        Ok(1)
+        Ok(Num::CYCLES)
     }
 
-    #[allow(clippy::deref_addrof)]
     fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
     where
         V: Into<u16>,
@@ -766,8 +776,7 @@ impl Instructions for GameBoy {
             NH => !f[flag::H].as_bool(),
             NC => !f[flag::C].as_bool(),
         } {
-            // clippy::deref_addrof false positive
-            *&mut self.cpu.register.pc() += offset_.into();
+            *self.cpu.register.pc += offset_.into();
             Ok(3)
         } else {
             Ok(2)
@@ -783,7 +792,7 @@ impl Instructions for GameBoy {
         R: mem::Read<Out = u16>,
     {
         let from = from.read(self);
-        let sp = &mut self.cpu.register.sp();
+        let sp: &mut u16 = &mut self.cpu.register.sp;
         self.mmu.write_u16(*sp, from);
         *sp += 2;
         Ok(4)

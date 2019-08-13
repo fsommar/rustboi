@@ -1,5 +1,3 @@
-use crate::gameboy::cpu::register::RegisterPc;
-
 mod cpu;
 mod instr;
 mod mem;
@@ -20,11 +18,11 @@ impl GameBoy {
     }
 
     fn fetch(&self) -> u8 {
-        self.mmu.read_u8(self.cpu.register.pc())
+        self.mmu.read_u8(*self.cpu.register.pc)
     }
 
     fn advance_pc(&mut self, steps: u8) {
-        let pc: &mut u16 = &mut self.cpu.register.pc();
+        let pc: &mut u16 = &mut self.cpu.register.pc;
         *pc += u16::from(steps);
     }
 

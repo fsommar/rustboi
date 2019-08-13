@@ -6,12 +6,12 @@ use std::{
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
 pub(crate) struct Register {
-    af: RegisterPair,
-    bc: RegisterPair,
-    de: RegisterPair,
-    hl: RegisterPair,
-    sp: StackPointer,
-    pc: ProgramCounter,
+    pub(crate) af: RegisterPair,
+    pub(crate) bc: RegisterPair,
+    pub(crate) de: RegisterPair,
+    pub(crate) hl: RegisterPair,
+    pub(crate) sp: StackPointer,
+    pub(crate) pc: ProgramCounter,
 }
 
 #[repr(C)]
@@ -53,6 +53,40 @@ impl DerefMut for ProgramCounter {
     }
 }
 
+impl Deref for StackPointer {
+    type Target = u16;
+
+    fn deref(&self) -> &u16 {
+        &self.sp
+    }
+}
+
+impl DerefMut for StackPointer {
+    fn deref_mut(&mut self) -> &mut u16 {
+        &mut self.sp
+    }
+}
+
+impl Deref for RegisterPair {
+    type Target = u16;
+
+    fn deref(&self) -> &u16 {
+        #[allow(clippy::cast_ptr_alignment)]
+        unsafe {
+            &*(self as *const RegisterPair as *const u16)
+        }
+    }
+}
+
+impl DerefMut for RegisterPair {
+    fn deref_mut(&mut self) -> &mut u16 {
+        #[allow(clippy::cast_ptr_alignment)]
+        unsafe {
+            &mut *(self as *mut RegisterPair as *mut u16)
+        }
+    }
+}
+
 pub trait Register8 {
     type Output;
     fn a(self) -> Self::Output;
@@ -67,150 +101,56 @@ pub trait Register8 {
 impl Register8 for Register {
     type Output = u8;
     fn a(self) -> Self::Output {
-        self.af.hi()
+        self.af.hi
     }
     fn b(self) -> Self::Output {
-        self.bc.hi()
+        self.bc.hi
     }
     fn c(self) -> Self::Output {
-        self.bc.lo()
+        self.bc.lo
     }
     fn d(self) -> Self::Output {
-        self.de.hi()
+        self.de.hi
     }
     fn e(self) -> Self::Output {
-        self.de.lo()
+        self.de.lo
     }
     fn h(self) -> Self::Output {
-        self.hl.hi()
+        self.hl.hi
     }
     fn l(self) -> Self::Output {
-        self.hl.lo()
+        self.hl.lo
     }
 }
 
 impl<'a> Register8 for &'a mut Register {
     type Output = &'a mut u8;
     fn a(self) -> Self::Output {
-        self.af.hi_mut()
+        &mut self.af.hi
     }
     fn b(self) -> Self::Output {
-        self.bc.hi_mut()
+        &mut self.bc.hi
     }
     fn c(self) -> Self::Output {
-        self.bc.lo_mut()
+        &mut self.bc.lo
     }
     fn d(self) -> Self::Output {
-        self.de.hi_mut()
+        &mut self.de.hi
     }
     fn e(self) -> Self::Output {
-        self.de.lo_mut()
+        &mut self.de.lo
     }
     fn h(self) -> Self::Output {
-        self.hl.hi_mut()
+        &mut self.hl.hi
     }
     fn l(self) -> Self::Output {
-        self.hl.lo_mut()
-    }
-}
-
-pub trait Register16 {
-    type Output;
-    fn af(self) -> Self::Output;
-    fn bc(self) -> Self::Output;
-    fn de(self) -> Self::Output;
-    fn hl(self) -> Self::Output;
-    fn sp(self) -> Self::Output;
-}
-
-impl Register16 for Register {
-    type Output = u16;
-    fn af(self) -> Self::Output {
-        self.af.as_u16()
-    }
-    fn bc(self) -> Self::Output {
-        self.bc.as_u16()
-    }
-    fn de(self) -> Self::Output {
-        self.de.as_u16()
-    }
-    fn hl(self) -> Self::Output {
-        self.hl.as_u16()
-    }
-    fn sp(self) -> Self::Output {
-        self.sp.sp
-    }
-}
-
-impl<'a> Register16 for &'a mut Register {
-    type Output = &'a mut u16;
-    fn af(self) -> Self::Output {
-        self.af.as_u16_mut()
-    }
-    fn bc(self) -> Self::Output {
-        self.bc.as_u16_mut()
-    }
-    fn de(self) -> Self::Output {
-        self.de.as_u16_mut()
-    }
-    fn hl(self) -> Self::Output {
-        self.hl.as_u16_mut()
-    }
-    fn sp(self) -> Self::Output {
-        &mut self.sp.sp
-    }
-}
-
-pub trait RegisterPc {
-    type Output;
-    fn pc(self) -> Self::Output;
-}
-
-impl RegisterPc for Register {
-    type Output = u16;
-    fn pc(self) -> Self::Output {
-        self.pc.pc
-    }
-}
-
-impl<'a> RegisterPc for &'a mut Register {
-    type Output = &'a mut u16;
-    fn pc(self) -> Self::Output {
-        &mut self.pc.pc
+        &mut self.hl.lo
     }
 }
 
 impl Register {
     pub(crate) fn f(&mut self) -> &mut RegisterF {
-        unsafe { &mut *(self.af.lo_mut() as *mut u8 as *mut RegisterF) }
-    }
-}
-
-// RegisterPair will always be two u8 and repr(C), and therefore can be represented as u16.
-#[allow(clippy::cast_ptr_alignment)]
-impl RegisterPair {
-    fn lo(self) -> u8 {
-        self.lo
-    }
-
-    fn lo_mut(&mut self) -> &mut u8 {
-        &mut self.lo
-    }
-
-    fn hi_mut(&mut self) -> &mut u8 {
-        &mut self.hi
-    }
-
-    fn hi(self) -> u8 {
-        self.hi
-    }
-
-    pub(crate) fn as_u16(self) -> u16 {
-        unsafe { *(&self as *const RegisterPair as *const u16) }
-    }
-
-    pub(crate) fn as_u16_mut(&mut self) -> &mut u16 {
-        unsafe { &mut *(self as *mut RegisterPair as *mut u16) }
+        unsafe { &mut *(&mut self.af.lo as *mut u8 as *mut RegisterF) }
     }
 }
 
@@ -225,7 +165,7 @@ mod tests {
             lo: 0b0000_0111_u8,
             hi: 0b1111_0000_u8,
         };
-        assert_eq!(0b1111_0000_0000_0111_u16, rr.as_u16());
+        assert_eq!(0b1111_0000_0000_0111_u16, *rr);
     }
 
     #[test]
@@ -234,7 +174,7 @@ mod tests {
             lo: 0b0000_0111_u8,
             hi: 0b1111_0000_u8,
         };
-        *rr.as_u16_mut() = 0b0000_0000_0000_1111;
+        *rr = 0b0000_0000_0000_1111;
         assert_eq!(
             RegisterPair {
                 lo: 0b0000_1111,
@@ -247,9 +187,9 @@ mod tests {
     #[test]
     fn test_lo_hi_mut() {
         let mut rr: RegisterPair = Default::default();
-        *rr.lo_mut() = 5;
+        rr.lo = 5;
         assert_eq!(rr, RegisterPair { lo: 5, hi: 0 });
-        *rr.hi_mut() = 10;
+        rr.hi = 10;
         assert_eq!(rr, RegisterPair { lo: 5, hi: 10 });
     }
 
