@@ -309,8 +309,8 @@ impl AsAddr for u8 {
 
 trait Integer: num_traits::PrimInt + num_traits::Unsigned {
     const CYCLES: u8;
+    const HALF_CARRY_FLAG: Self;
     fn from_carry(carry: Carry) -> Self;
-    fn half_carry_flag() -> Self;
     fn set_zero_flag(f: &mut RegisterF, res: Self);
     fn overflowing_add(self, rhs: Self) -> (Self, bool);
     fn overflowing_sub(self, rhs: Self) -> (Self, bool);
@@ -318,13 +318,10 @@ trait Integer: num_traits::PrimInt + num_traits::Unsigned {
 
 impl Integer for u16 {
     const CYCLES: u8 = 2;
+    const HALF_CARRY_FLAG: Self = 0x100;
 
     fn from_carry(carry: Carry) -> Self {
         carry.to_u16().unwrap()
-    }
-
-    fn half_carry_flag() -> Self {
-        0x100
     }
 
     fn set_zero_flag(_f: &mut RegisterF, _res: Self) {
@@ -342,13 +339,10 @@ impl Integer for u16 {
 
 impl Integer for u8 {
     const CYCLES: u8 = 1;
+    const HALF_CARRY_FLAG: Self = 0x10;
 
     fn from_carry(carry: Carry) -> Self {
         carry.to_u8().unwrap()
-    }
-
-    fn half_carry_flag() -> u8 {
-        0x10
     }
 
     fn set_zero_flag(f: &mut RegisterF, res: Self) {
@@ -599,7 +593,7 @@ trait Instructions {
             let (res, overflow1) = x.overflowing_add(y);
             let (res, overflow2) = res.overflowing_add(Num::from_carry(carry));
             Num::set_zero_flag(&mut f, res);
-            f[flag::H].set_bool((x ^ y ^ res) & Num::half_carry_flag() != Num::zero());
+            f[flag::H].set_bool((x ^ y ^ res) & Num::HALF_CARRY_FLAG != Num::zero());
             f[flag::C].set_bool(overflow1 || overflow2);
             (res, f)
         })
@@ -616,7 +610,7 @@ trait Instructions {
             let (res, overflow2) = res.overflowing_sub(carry);
             f[flag::Z].set_bool(res == 0);
             f[flag::N].set();
-            f[flag::H].set_bool((x ^ y ^ res) & u8::half_carry_flag() != 0);
+            f[flag::H].set_bool((x ^ y ^ res) & u8::HALF_CARRY_FLAG != 0);
             f[flag::C].set_bool(overflow1 || overflow2);
             (res, f)
         })
@@ -684,7 +678,7 @@ trait Instructions {
             let res = x.wrapping_add(y);
             f[flag::Z].set_bool(res == 0);
             f[flag::N].reset();
-            f[flag::H].set_bool((x ^ y ^ res) & u8::half_carry_flag() != 0);
+            f[flag::H].set_bool((x ^ y ^ res) & u8::HALF_CARRY_FLAG != 0);
             (res, f)
         })
     }
@@ -704,7 +698,7 @@ trait Instructions {
             let res = x.wrapping_sub(y);
             f[flag::Z].set_bool(res == 0);
             f[flag::N].set();
-            f[flag::H].set_bool((x ^ y ^ res) & u8::half_carry_flag() != 0);
+            f[flag::H].set_bool((x ^ y ^ res) & u8::HALF_CARRY_FLAG != 0);
             (res, f)
         })
     }
