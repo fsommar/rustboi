@@ -306,6 +306,7 @@ impl AsAddr for u8 {
 }
 
 trait Integer: num_traits::PrimInt + num_traits::Unsigned {
+    const CYCLES: u8;
     fn from_carry(carry: Carry) -> Self;
     fn half_carry_flag() -> Self;
     fn set_zero_flag(f: &mut RegisterF, res: Self);
@@ -314,6 +315,8 @@ trait Integer: num_traits::PrimInt + num_traits::Unsigned {
 }
 
 impl Integer for u16 {
+    const CYCLES: u8 = 2;
+
     fn from_carry(carry: Carry) -> Self {
         carry.to_u16().unwrap()
     }
@@ -336,6 +339,8 @@ impl Integer for u16 {
 }
 
 impl Integer for u8 {
+    const CYCLES: u8 = 1;
+
     fn from_carry(carry: Carry) -> Self {
         carry.to_u8().unwrap()
     }
@@ -362,7 +367,7 @@ where
     T: mem::Read<Out = Num>,
     U: mem::Read<Out = UNum>,
     UNum: Into<Num>,
-    Num: num_traits::PrimInt + num_traits::Unsigned,
+    Num: Integer,
 {
     type Out = Num;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
@@ -374,7 +379,7 @@ where
 
 impl<W, T> mem::Read for PostInc<W>
 where
-    T: num_traits::PrimInt + num_traits::Unsigned,
+    T: Integer,
     W: mem::Write<In = T> + mem::Read<Out = T>,
 {
     type Out = T;
@@ -389,7 +394,7 @@ where
 
 impl<W, T> mem::Read for PostDec<W>
 where
-    T: num_traits::PrimInt + num_traits::Unsigned,
+    T: Integer,
     W: mem::Write<In = T> + mem::Read<Out = T>,
 {
     type Out = T;
@@ -560,18 +565,6 @@ enum Interrupt {
     Disable,
 }
 
-trait Cycles {
-    const CYCLES: u8;
-}
-
-impl Cycles for u8 {
-    const CYCLES: u8 = 1;
-}
-
-impl Cycles for u16 {
-    const CYCLES: u8 = 2;
-}
-
 trait Instructions {
     type Output;
 
@@ -585,7 +578,7 @@ trait Instructions {
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
         F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
-        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles;
+        Num: Integer;
 
     fn jump<Offset, V>(&mut self, _: Flags, _: Offset) -> Self::Output
     where
@@ -598,7 +591,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: Integer + Cycles,
+        Num: Integer,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let (res, overflow1) = x.overflowing_add(y);
@@ -631,7 +624,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
+        Num: Integer,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x ^ y;
@@ -644,7 +637,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
+        Num: Integer,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x & y;
@@ -660,7 +653,7 @@ trait Instructions {
     where
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
-        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
+        Num: Integer,
     {
         self.binary_op(lhs, rhs, |x, y, mut f| {
             let res = x | y;
@@ -747,7 +740,7 @@ impl Instructions for GameBoy {
         LHS: mem::Read<Out = Num> + mem::Write<In = Num>,
         RHS: mem::Read<Out = Num>,
         F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
-        Num: num_traits::PrimInt + num_traits::Unsigned + Cycles,
+        Num: Integer,
     {
         let lhs_ = lhs.read(self);
         let rhs_ = rhs.read(self);
