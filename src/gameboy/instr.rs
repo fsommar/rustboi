@@ -1,3 +1,5 @@
+use failure::Error;
+
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::ToPrimitive;
 
@@ -6,7 +8,7 @@ use crate::gameboy::cpu::register::*;
 use crate::gameboy::mem;
 use crate::GameBoy;
 
-pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, String> {
+pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, Error> {
     match opcode {
         0x00 => gameboy.nop(),
         0x01 => gameboy.load(R16::BC, Immediate16),
@@ -417,7 +419,7 @@ impl<A: AsAddr, R: mem::Read<Out = A>> mem::Read for AddrOf<R> {
 
 impl<A: AsAddr, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
     type In = u8;
-    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
+    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), Error> {
         let addr = self.0.read(gb).into_addr();
         gb.mmu.write_u8(addr, value);
         Ok(())
@@ -426,7 +428,7 @@ impl<A: AsAddr, R: mem::Read<Out = A>> mem::Write for AddrOf<R> {
 
 impl<V, T: mem::Write<In = V>> mem::Write for NoWrite<T> {
     type In = V;
-    fn write(&self, _: &mut GameBoy, _: Self::In) -> Result<(), String> {
+    fn write(&self, _: &mut GameBoy, _: Self::In) -> Result<(), Error> {
         // NoWrite causes write to be a NOOP.
         Ok(())
     }
@@ -500,7 +502,7 @@ impl mem::Read for R8 {
 
 impl mem::Write for R8 {
     type In = u8;
-    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
+    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), Error> {
         use self::R8::*;
         let reg: &mut u8 = &mut match self {
             A => gb.cpu.register.a(),
@@ -540,7 +542,7 @@ impl mem::Read for R16 {
 
 impl mem::Write for R16 {
     type In = u16;
-    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), String> {
+    fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), Error> {
         use self::R16::*;
         let reg: &mut u16 = &mut match self {
             AF => *gb.cpu.register.af,
@@ -723,7 +725,7 @@ trait Instructions {
 }
 
 impl Instructions for GameBoy {
-    type Output = Result<u8, String>;
+    type Output = Result<u8, Error>;
 
     fn load<W, R, V>(&mut self, to: W, from: R) -> Self::Output
     where

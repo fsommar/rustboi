@@ -26,7 +26,7 @@ impl GameBoy {
         *pc += u16::from(steps);
     }
 
-    fn execute(&mut self, opcode: u8) -> Result<(), String> {
+    fn execute(&mut self, opcode: u8) -> Result<(), failure::Error> {
         let steps = instr::execute(opcode, self)?;
         self.advance_pc(steps);
         Ok(())

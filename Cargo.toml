@@ -1,8 +1,9 @@
 [package]
 authors = ["Fredrik Sommar <fred.sommar@gmail.com>"]
+edition = "2018"
 name = "rustboi"
 version = "0.1.0"
-edition = "2018"
 [dependencies]
+failure = "0.1.5"
 num-derive = "0.2.5"
 num-traits = "0.2.8"

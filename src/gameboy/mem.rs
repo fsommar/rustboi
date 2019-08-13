@@ -66,5 +66,5 @@ pub(crate) trait Read {
 
 pub(crate) trait Write {
     type In;
-    fn write(&self, _: &mut super::GameBoy, value: Self::In) -> Result<(), String>;
+    fn write(&self, _: &mut super::GameBoy, value: Self::In) -> Result<(), failure::Error>;
 }
