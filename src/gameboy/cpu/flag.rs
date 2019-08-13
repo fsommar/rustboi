@@ -1,8 +1,11 @@
-use super::RegisterF;
-use std::{self,
-          convert::From,
-          marker::PhantomData,
-          ops::{Index, IndexMut}};
+use std::{
+    self,
+    convert::From,
+    marker::PhantomData,
+    ops::{Index, IndexMut},
+};
+
+use super::register::RegisterF;
 
 /// `flag::Value` is an alternative view of `RegisterF` for a specific flag.
 ///
@@ -10,7 +13,7 @@ use std::{self,
 /// with flag Z.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub(super) struct Value<Flag> {
+pub(crate) struct Value<Flag> {
     is: RegisterF,
     phantom: PhantomData<Flag>,
 }
@@ -19,7 +22,7 @@ pub(super) struct Value<Flag> {
 ///
 /// Each flag has its own offset in the 8 bit register F, and this trait gives meaning to flag
 /// structs without increasing their memory usage -- they're still zero sized.
-pub(super) trait Flag {
+pub(crate) trait Flag {
     fn offset() -> u8;
 }
 
@@ -47,12 +50,12 @@ flags_with_offsets![Z: 7, N: 6, H: 5, C: 4, _3: 3, _2: 2, _1: 1, _0: 0];
 impl<T: Flag> Value<T> {
     // Internally used constructor to abstract the necessary transmute to convert from register F.
     fn new_mut(rf: &mut RegisterF) -> &mut Value<T> {
-        unsafe { std::mem::transmute(rf) }
+        unsafe { &mut *(rf as *mut RegisterF as *mut Value<T>) }
     }
 
     // Internally used constructor to abstract the necessary transmute to convert from register F.
     fn new(rf: &RegisterF) -> &Value<T> {
-        unsafe { std::mem::transmute(rf) }
+        unsafe { &*(rf as *const RegisterF as *const Value<T>) }
     }
 
     /// Sets flag `T` in register F to the provided bool.
@@ -60,23 +63,24 @@ impl<T: Flag> Value<T> {
     /// `set` and `reset` should be preferred whenever possible, since they more clearly show
     /// intent.
     pub fn set_bool(&mut self, value: bool) {
-        let rf: &mut RegisterF = unsafe { std::mem::transmute(self) };
+        let rf: &mut RegisterF = unsafe { &mut *(self as *mut Value<T> as *mut RegisterF) };
         let offset = <T as Flag>::offset();
-        *(&mut rf.f) = rf.f & !(1u8 << offset) | ((value as u8) << offset);
+        rf.f &= !(1u8 << offset);
+        rf.f |= (value as u8) << offset;
     }
 
     /// Reads the flag as a bool.
     pub fn as_bool(&self) -> bool {
-        let rf: &RegisterF = unsafe { std::mem::transmute(self) };
+        let rf: &RegisterF = unsafe { &*(self as *const Value<T> as *const RegisterF) };
         let offset = <T as Flag>::offset();
         (rf.f >> offset) & 1u8 != 0
     }
 
     /// Toggles the flag, i.e. `false` => `true` or vice versa.
     pub fn toggle(&mut self) {
-        let rf: &mut RegisterF = unsafe { std::mem::transmute(self) };
+        let rf: &mut RegisterF = unsafe { &mut *(self as *mut Value<T> as *mut RegisterF) };
         let offset = <T as Flag>::offset();
-        *(&mut rf.f) = rf.f ^ (1u8 << offset);
+        rf.f ^= 1u8 << offset;
     }
 
     /// Sets the flag to `true`.
@@ -104,7 +108,7 @@ impl<T: Flag> Index<T> for RegisterF {
 // methods, e.g. `register.f()[flag::Z].set()` for the same effect as the previous assignment.
 //
 // I don't see it as a big drawback, but it'd be interesting to see if it's possible out of mere
-// curiousity if nothing else.
+// curiosity if nothing else.
 impl<T: Flag> IndexMut<T> for RegisterF {
     // T is only used as an indicator of which `Flag` to use; the (zero-sized) value is never used.
     fn index_mut(&mut self, _: T) -> &mut Value<T> {

@@ -1,8 +1,9 @@
+use crate::gameboy::GameBoy;
+
 mod gameboy;
 
-use gameboy::GameBoy;
-
 fn main() {
-    let gb: GameBoy = Default::default();
+    let mut gb: GameBoy = Default::default();
     println!("{:#?}", gb);
+    gb.run();
 }

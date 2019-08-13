@@ -1,178 +1,222 @@
-use std::{self, ops::{Deref, DerefMut}};
-
-use super::flag;
+use std::{
+    self,
+    ops::{Deref, DerefMut},
+};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct Register {
-    af: RegisterPair,
-    bc: RegisterPair,
-    de: RegisterPair,
-    hl: RegisterPair,
-    sp: StackPointer,
-    pc: ProgramCounter,
+pub(crate) struct Register {
+    pub(crate) af: RegisterPair,
+    pub(crate) bc: RegisterPair,
+    pub(crate) de: RegisterPair,
+    pub(crate) hl: RegisterPair,
+    pub(crate) sp: StackPointer,
+    pub(crate) pc: ProgramCounter,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct RegisterPair {
+pub(crate) struct RegisterPair {
     lo: u8,
     hi: u8,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct RegisterF {
+pub(crate) struct RegisterF {
     pub(super) f: u8,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct StackPointer {
+pub(crate) struct StackPointer {
     sp: u16,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Default)]
-pub(super) struct ProgramCounter {
-    pc: u16
+pub(crate) struct ProgramCounter {
+    pc: u16,
+}
+
+impl Deref for ProgramCounter {
+    type Target = u16;
+
+    fn deref(&self) -> &u16 {
+        &self.pc
+    }
+}
+
+impl DerefMut for ProgramCounter {
+    fn deref_mut(&mut self) -> &mut u16 {
+        &mut self.pc
+    }
+}
+
+impl Deref for StackPointer {
+    type Target = u16;
+
+    fn deref(&self) -> &u16 {
+        &self.sp
+    }
+}
+
+impl DerefMut for StackPointer {
+    fn deref_mut(&mut self) -> &mut u16 {
+        &mut self.sp
+    }
 }
 
 impl Deref for RegisterPair {
     type Target = u16;
 
     fn deref(&self) -> &u16 {
-        self.as_u16()
+        #[allow(clippy::cast_ptr_alignment)]
+        unsafe {
+            &*(self as *const RegisterPair as *const u16)
+        }
     }
 }
 
 impl DerefMut for RegisterPair {
     fn deref_mut(&mut self) -> &mut u16 {
-        self.as_u16_mut()
+        #[allow(clippy::cast_ptr_alignment)]
+        unsafe {
+            &mut *(self as *mut RegisterPair as *mut u16)
+        }
+    }
+}
+
+pub trait Register8 {
+    type Output;
+    fn a(self) -> Self::Output;
+    fn b(self) -> Self::Output;
+    fn c(self) -> Self::Output;
+    fn d(self) -> Self::Output;
+    fn e(self) -> Self::Output;
+    fn h(self) -> Self::Output;
+    fn l(self) -> Self::Output;
+}
+
+impl Register8 for Register {
+    type Output = u8;
+    fn a(self) -> Self::Output {
+        self.af.hi
+    }
+    fn b(self) -> Self::Output {
+        self.bc.hi
+    }
+    fn c(self) -> Self::Output {
+        self.bc.lo
+    }
+    fn d(self) -> Self::Output {
+        self.de.hi
+    }
+    fn e(self) -> Self::Output {
+        self.de.lo
+    }
+    fn h(self) -> Self::Output {
+        self.hl.hi
+    }
+    fn l(self) -> Self::Output {
+        self.hl.lo
+    }
+}
+
+impl<'a> Register8 for &'a mut Register {
+    type Output = &'a mut u8;
+    fn a(self) -> Self::Output {
+        &mut self.af.hi
+    }
+    fn b(self) -> Self::Output {
+        &mut self.bc.hi
+    }
+    fn c(self) -> Self::Output {
+        &mut self.bc.lo
+    }
+    fn d(self) -> Self::Output {
+        &mut self.de.hi
+    }
+    fn e(self) -> Self::Output {
+        &mut self.de.lo
+    }
+    fn h(self) -> Self::Output {
+        &mut self.hl.hi
+    }
+    fn l(self) -> Self::Output {
+        &mut self.hl.lo
     }
 }
 
 impl Register {
-    pub fn a(&mut self) -> &mut u8 {
-        self.af.hi_mut()
-    }
-    
-    pub fn f(&mut self) -> &mut RegisterF {
-        unsafe { std::mem::transmute(self.af.lo_mut()) }
-    }
-
-    pub fn af(&mut self) -> &mut RegisterPair {
-        &mut self.af
-    }
-
-    pub fn b(&mut self) -> &mut u8 {
-        self.bc.hi_mut()
-    }
-    
-    pub fn c(&mut self) -> &mut u8 {
-        self.bc.lo_mut()
-    }
-
-    pub fn bc(&mut self) -> &mut RegisterPair {
-        &mut self.bc
-    }
-
-    pub fn d(&mut self) -> &mut u8 {
-        self.de.hi_mut()
-    }
-    
-    pub fn e(&mut self) -> &mut u8 {
-        self.de.lo_mut()
-    }
-
-    pub fn de(&mut self) -> &mut RegisterPair {
-        &mut self.de
-    }
-
-    pub fn h(&mut self) -> &mut u8 {
-        self.hl.hi_mut()
-    }
-    
-    pub fn l(&mut self) -> &mut u8 {
-        self.hl.lo_mut()
-    }
-
-    pub fn hl(&mut self) -> &mut RegisterPair {
-        &mut self.hl
+    pub(crate) fn f(&mut self) -> &mut RegisterF {
+        unsafe { &mut *(&mut self.af.lo as *mut u8 as *mut RegisterF) }
     }
 }
 
-impl RegisterPair {
-    fn lo(&self) -> u8 {
-        self.lo
+#[cfg(test)]
+mod tests {
+    use super::super::flag;
+    use super::*;
+
+    #[test]
+    fn test_as_u16() {
+        let rr = RegisterPair {
+            lo: 0b0000_0111_u8,
+            hi: 0b1111_0000_u8,
+        };
+        assert_eq!(0b1111_0000_0000_0111_u16, *rr);
     }
 
-    fn lo_mut(&mut self) -> &mut u8 {
-        &mut self.lo
+    #[test]
+    fn test_as_u16_mut() {
+        let mut rr = RegisterPair {
+            lo: 0b0000_0111_u8,
+            hi: 0b1111_0000_u8,
+        };
+        *rr = 0b0000_0000_0000_1111;
+        assert_eq!(
+            RegisterPair {
+                lo: 0b0000_1111,
+                hi: 0,
+            },
+            rr
+        );
     }
 
-    fn hi_mut(&mut self) -> &mut u8 {
-        &mut self.hi
+    #[test]
+    fn test_lo_hi_mut() {
+        let mut rr: RegisterPair = Default::default();
+        rr.lo = 5;
+        assert_eq!(rr, RegisterPair { lo: 5, hi: 0 });
+        rr.hi = 10;
+        assert_eq!(rr, RegisterPair { lo: 5, hi: 10 });
     }
 
-    fn hi(&self) -> u8 {
-        self.hi
+    #[test]
+    fn test_struct_sizes() {
+        assert_eq!(1, std::mem::size_of::<RegisterF>());
+        assert_eq!(2, std::mem::size_of::<StackPointer>());
+        assert_eq!(2, std::mem::size_of::<ProgramCounter>());
+        assert_eq!(2, std::mem::size_of::<RegisterPair>());
+        assert_eq!(12, std::mem::size_of::<Register>());
     }
 
-    fn as_u16(&self) -> &u16 {
-        unsafe { std::mem::transmute::<&Self, &u16>(self) }
+    #[test]
+    fn test_get_f_register() {
+        let mut register: Register = Default::default();
+        assert_eq!(false, register.f()[flag::C].into());
+        assert_eq!(false, register.f()[flag::Z].into());
+        assert_eq!(false, register.f()[flag::H].into());
+        register.f()[flag::Z].toggle();
+        register.f()[flag::C].set();
+        assert_eq!(true, register.f()[flag::C].into());
+        assert_eq!(true, register.f()[flag::Z].into());
+        assert_eq!(false, register.f()[flag::H].into());
+        register.f()[flag::Z].toggle();
+        register.f()[flag::C].reset();
+        assert_eq!(false, register.f()[flag::C].into());
+        assert_eq!(false, register.f()[flag::Z].into());
+        assert_eq!(false, register.f()[flag::H].into());
     }
-
-    fn as_u16_mut(&mut self) -> &mut u16 {
-        unsafe { std::mem::transmute::<&mut Self, &mut u16>(self) }
-    }
-}
-
-#[test]
-fn test_as_u16() {
-    let rr = RegisterPair { lo: 0b0000_0111_u8, hi: 0b1111_0000_u8 };
-    assert_eq!(0b1111_0000_0000_0111_u16, *rr.as_u16());
-}
-
-#[test]
-fn test_as_u16_mut() {
-    let mut rr = RegisterPair { lo: 0b0000_0111_u8, hi: 0b1111_0000_u8 };
-    *rr = 0b0000_0000_0000_1111;
-    assert_eq!(RegisterPair { lo: 0b0000_1111, hi: 0 }, rr);
-}
-
-#[test]
-fn test_lo_hi_mut() {
-    let mut rr: RegisterPair = Default::default();
-    *rr.lo_mut() = 5;
-    assert_eq!(rr, RegisterPair { lo: 5, hi: 0 });
-    *rr.hi_mut() = 10;
-    assert_eq!(rr, RegisterPair { lo: 5, hi: 10 });
-}
-
-#[test]
-fn test_struct_sizes() {
-    assert_eq!(1, std::mem::size_of::<RegisterF>());
-    assert_eq!(2, std::mem::size_of::<StackPointer>());
-    assert_eq!(2, std::mem::size_of::<ProgramCounter>());
-    assert_eq!(2, std::mem::size_of::<RegisterPair>());
-    assert_eq!(12, std::mem::size_of::<Register>());
-}
-
-#[test]
-fn test_get_f_register() {
-    let mut register: Register = Default::default();
-    assert_eq!(false, register.f()[flag::C].into());
-    assert_eq!(false, register.f()[flag::Z].into());
-    assert_eq!(false, register.f()[flag::H].into());
-    register.f()[flag::Z].toggle();
-    register.f()[flag::C].set();
-    assert_eq!(true, register.f()[flag::C].into());
-    assert_eq!(true, register.f()[flag::Z].into());
-    assert_eq!(false, register.f()[flag::H].into());
-    register.f()[flag::Z].toggle();
-    register.f()[flag::C].reset();
-    assert_eq!(false, register.f()[flag::C].into());
-    assert_eq!(false, register.f()[flag::Z].into());
-    assert_eq!(false, register.f()[flag::H].into());
 }
