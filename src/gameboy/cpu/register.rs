@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 use std::{
     self,
     ops::{Deref, DerefMut},
@@ -151,6 +152,36 @@ impl<'a> Register8 for &'a mut Register {
 impl Register {
     pub(crate) fn f(&mut self) -> &mut RegisterF {
         unsafe { &mut *(&mut self.af.lo as *mut u8 as *mut RegisterF) }
+    }
+}
+
+impl std::fmt::Display for Register {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            r#"
+    A ${:02X} F ${:02X} AF ${:04X}
+    B ${:02X} C ${:02X} BC ${:04X}
+    D ${:02X} E ${:02X} DE ${:04X}
+    H ${:02X} L ${:02X} HL ${:04X}
+    SP ${:04X}
+    PC ${:04X}
+        "#,
+            self.af.hi,
+            self.af.lo,
+            *self.af,
+            self.bc.hi,
+            self.bc.lo,
+            *self.bc,
+            self.de.hi,
+            self.de.lo,
+            *self.de,
+            self.hl.hi,
+            self.hl.lo,
+            *self.hl,
+            *self.sp,
+            *self.pc,
+        )
     }
 }
 

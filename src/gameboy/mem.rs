@@ -1,22 +1,39 @@
+use byteorder::{ByteOrder, LittleEndian};
+
 #[derive(Debug)]
 pub(crate) struct MMU {
-    mem: Box<[u8]>,
+    pub(crate) mem: Box<[u8]>,
 }
 
 impl MMU {
     pub fn new() -> MMU {
         MMU {
             // Memory is 16 kB (simplified)
-            mem: vec![0u8; 1 << 14].into_boxed_slice(),
+            mem: vec![0u8; 1 << 16].into_boxed_slice(),
         }
     }
 
     pub fn write_u8(&mut self, addr: u16, value: u8) {
-        self.mem[addr as usize] = value;
+        if addr as usize >= self.mem.len() {
+            println!(
+                "WARNING! Ignoring read from outside memory area 0x{:02X?}",
+                addr
+            );
+        } else {
+            self.mem[addr as usize] = value;
+        }
     }
 
     pub fn read_u8(&self, addr: u16) -> u8 {
-        self.mem[addr as usize]
+        if addr as usize >= self.mem.len() {
+            println!(
+                "WARNING! Ignoring read from outside memory area 0x{:02X?}",
+                addr
+            );
+            0
+        } else {
+            self.mem[addr as usize]
+        }
     }
 
     pub fn read_u8_mut(&mut self, addr: u16) -> &mut u8 {
@@ -24,12 +41,19 @@ impl MMU {
     }
 
     pub fn read_u16(&self, addr: u16) -> u16 {
-        u16::from(self.read_u8(addr + 1)) | u16::from(self.read_u8(addr)) << 8
+        if addr as usize >= self.mem.len() {
+            println!(
+                "WARNING! Ignoring read from outside memory area 0x{:04X?}",
+                addr
+            );
+            0
+        } else {
+            LittleEndian::read_u16(&self.mem[addr as usize..=(addr + 1) as usize])
+        }
     }
 
     pub fn write_u16(&mut self, addr: u16, value: u16) {
-        self.mem[addr as usize] = (value >> 8) as u8;
-        self.mem[addr as usize + 1] = (value & 0xFF) as u8;
+        LittleEndian::write_u16(&mut self.mem[addr as usize..=(addr + 1) as usize], value);
     }
 }
 
@@ -61,10 +85,12 @@ fn test_write_u16() {
 
 pub(crate) trait Read {
     type Out;
+    const CYCLES: u8 = 0;
     fn read(&self, _: &mut super::GameBoy) -> Self::Out;
 }
 
 pub(crate) trait Write {
     type In;
+    const CYCLES: u8 = 1;
     fn write(&self, _: &mut super::GameBoy, value: Self::In) -> Result<(), failure::Error>;
 }

@@ -7,6 +7,7 @@ use crate::gameboy::cpu::flag;
 use crate::gameboy::cpu::register::*;
 use crate::gameboy::mem;
 use crate::GameBoy;
+use std::ops::DerefMut;
 
 pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, Error> {
     match opcode {
@@ -207,24 +208,24 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, Error> {
         0xBE => gameboy.cmp(R8::A, AddrOf(R16::HL)),
         0xBF => gameboy.cmp(R8::A, R8::A),
         0xC0 => unimplemented!(),
-        0xC1 => unimplemented!(),
-        0xC2 => gameboy.jump(Flags::NZ, Immediate16),
-        0xC3 => gameboy.jump(Flags::Always, Immediate16),
+        0xC1 => gameboy.pop(R16::BC),
+        0xC2 => gameboy.jump16(Flags::NZ, Immediate16),
+        0xC3 => gameboy.jump16(Flags::Always, Immediate16),
         0xC4 => unimplemented!(),
         0xC5 => gameboy.push(R16::BC),
         0xC6 => gameboy.add(R8::A, Immediate8, Carry::Without),
         0xC7 => unimplemented!(),
         0xC8 => unimplemented!(),
         0xC9 => unimplemented!(),
-        0xCA => gameboy.jump(Flags::Z, Immediate16),
-        0xCB => unimplemented!(),
+        0xCA => gameboy.jump16(Flags::Z, Immediate16),
+        0xCB => callback(gameboy),
         0xCC => unimplemented!(),
-        0xCD => unimplemented!(),
+        0xCD => gameboy.call(Immediate16),
         0xCE => gameboy.add(R8::A, Immediate8, Carry::With),
         0xCF => unimplemented!(),
         0xD0 => unimplemented!(),
         0xD1 => unimplemented!(),
-        0xD2 => gameboy.jump(Flags::NC, Immediate16),
+        0xD2 => gameboy.jump16(Flags::NC, Immediate16),
         0xD3 => unimplemented!(),
         0xD4 => unimplemented!(),
         0xD5 => gameboy.push(R16::DE),
@@ -232,7 +233,7 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, Error> {
         0xD7 => unimplemented!(),
         0xD8 => unimplemented!(),
         0xD9 => unimplemented!(),
-        0xDA => gameboy.jump(Flags::C, Immediate16),
+        0xDA => gameboy.jump16(Flags::C, Immediate16),
         0xDB => unimplemented!(),
         0xDC => unimplemented!(),
         0xDD => unimplemented!(),
@@ -275,6 +276,269 @@ pub(crate) fn execute(opcode: u8, gameboy: &mut GameBoy) -> Result<u8, Error> {
     }
 }
 
+fn callback(gameboy: &mut GameBoy) -> Result<u8, Error> {
+    gameboy.advance_pc(1);
+    let opcode = gameboy.fetch();
+    match opcode {
+        0x00 => gameboy.rotate_left(R8::B, Carry::Without),
+        0x01 => gameboy.rotate_left(R8::C, Carry::Without),
+        0x02 => gameboy.rotate_left(R8::D, Carry::Without),
+        0x03 => gameboy.rotate_left(R8::E, Carry::Without),
+        0x04 => gameboy.rotate_left(R8::H, Carry::Without),
+        0x05 => gameboy.rotate_left(R8::L, Carry::Without),
+        0x06 => gameboy.rotate_left(AddrOf(R16::HL), Carry::Without),
+        0x07 => gameboy.rotate_left(R8::A, Carry::Without),
+        0x08 => gameboy.rotate_right(R8::B, Carry::Without),
+        0x09 => gameboy.rotate_right(R8::C, Carry::Without),
+        0x0A => gameboy.rotate_right(R8::D, Carry::Without),
+        0x0B => gameboy.rotate_right(R8::E, Carry::Without),
+        0x0C => gameboy.rotate_right(R8::H, Carry::Without),
+        0x0D => gameboy.rotate_right(R8::L, Carry::Without),
+        0x0E => gameboy.rotate_right(AddrOf(R16::HL), Carry::Without),
+        0x0F => gameboy.rotate_right(R8::A, Carry::Without),
+        0x10 => gameboy.rotate_left(R8::B, Carry::With),
+        0x11 => gameboy.rotate_left(R8::C, Carry::With),
+        0x12 => gameboy.rotate_left(R8::D, Carry::With),
+        0x13 => gameboy.rotate_left(R8::E, Carry::With),
+        0x14 => gameboy.rotate_left(R8::H, Carry::With),
+        0x15 => gameboy.rotate_left(R8::L, Carry::With),
+        0x16 => gameboy.rotate_left(AddrOf(R16::HL), Carry::With),
+        0x17 => gameboy.rotate_left(R8::A, Carry::With),
+        0x18 => gameboy.rotate_right(R8::B, Carry::With),
+        0x19 => gameboy.rotate_right(R8::C, Carry::With),
+        0x1A => gameboy.rotate_right(R8::D, Carry::With),
+        0x1B => gameboy.rotate_right(R8::E, Carry::With),
+        0x1C => gameboy.rotate_right(R8::H, Carry::With),
+        0x1D => gameboy.rotate_right(R8::L, Carry::With),
+        0x1E => gameboy.rotate_right(AddrOf(R16::HL), Carry::With),
+        0x1F => gameboy.rotate_right(R8::A, Carry::With),
+        0x20 => gameboy.shift_left(R8::B),
+        0x21 => gameboy.shift_left(R8::C),
+        0x22 => gameboy.shift_left(R8::D),
+        0x23 => gameboy.shift_left(R8::E),
+        0x24 => gameboy.shift_left(R8::H),
+        0x25 => gameboy.shift_left(R8::L),
+        0x26 => gameboy.shift_left(AddrOf(R16::HL)),
+        0x27 => gameboy.shift_left(R8::A),
+        0x28 => gameboy.shift_right(R8::B),
+        0x29 => gameboy.shift_right(R8::C),
+        0x2A => gameboy.shift_right(R8::D),
+        0x2B => gameboy.shift_right(R8::E),
+        0x2C => gameboy.shift_right(R8::H),
+        0x2D => gameboy.shift_right(R8::L),
+        0x2E => gameboy.shift_right(AddrOf(R16::HL)),
+        0x2F => gameboy.shift_right(R8::A),
+        0x30 => gameboy.swap(R8::B),
+        0x31 => gameboy.swap(R8::C),
+        0x32 => gameboy.swap(R8::D),
+        0x33 => gameboy.swap(R8::E),
+        0x34 => gameboy.swap(R8::H),
+        0x35 => gameboy.swap(R8::L),
+        0x36 => gameboy.swap(AddrOf(R16::HL)),
+        0x37 => gameboy.swap(R8::A),
+        0x38 => gameboy.shift_right_logical(R8::B),
+        0x39 => gameboy.shift_right_logical(R8::C),
+        0x3A => gameboy.shift_right_logical(R8::D),
+        0x3B => gameboy.shift_right_logical(R8::E),
+        0x3C => gameboy.shift_right_logical(R8::H),
+        0x3D => gameboy.shift_right_logical(R8::L),
+        0x3E => gameboy.shift_right_logical(AddrOf(R16::HL)),
+        0x3F => gameboy.shift_right_logical(R8::A),
+        0x40 => gameboy.bit(0, R8::B),
+        0x41 => gameboy.bit(0, R8::C),
+        0x42 => gameboy.bit(0, R8::D),
+        0x43 => gameboy.bit(0, R8::E),
+        0x44 => gameboy.bit(0, R8::H),
+        0x45 => gameboy.bit(0, R8::L),
+        0x46 => gameboy.bit(0, AddrOf(R16::HL)),
+        0x47 => gameboy.bit(0, R8::A),
+        0x48 => gameboy.bit(1, R8::B),
+        0x49 => gameboy.bit(1, R8::C),
+        0x4A => gameboy.bit(1, R8::D),
+        0x4B => gameboy.bit(1, R8::E),
+        0x4C => gameboy.bit(1, R8::H),
+        0x4D => gameboy.bit(1, R8::L),
+        0x4E => gameboy.bit(1, AddrOf(R16::HL)),
+        0x4F => gameboy.bit(1, R8::A),
+        0x50 => gameboy.bit(2, R8::B),
+        0x51 => gameboy.bit(2, R8::C),
+        0x52 => gameboy.bit(2, R8::D),
+        0x53 => gameboy.bit(2, R8::E),
+        0x54 => gameboy.bit(2, R8::H),
+        0x55 => gameboy.bit(2, R8::L),
+        0x56 => gameboy.bit(2, AddrOf(R16::HL)),
+        0x57 => gameboy.bit(2, R8::A),
+        0x58 => gameboy.bit(3, R8::B),
+        0x59 => gameboy.bit(3, R8::C),
+        0x5A => gameboy.bit(3, R8::D),
+        0x5B => gameboy.bit(3, R8::E),
+        0x5C => gameboy.bit(3, R8::H),
+        0x5D => gameboy.bit(3, R8::L),
+        0x5E => gameboy.bit(3, AddrOf(R16::HL)),
+        0x5F => gameboy.bit(3, R8::A),
+        0x60 => gameboy.bit(4, R8::B),
+        0x61 => gameboy.bit(4, R8::C),
+        0x62 => gameboy.bit(4, R8::D),
+        0x63 => gameboy.bit(4, R8::E),
+        0x64 => gameboy.bit(4, R8::H),
+        0x65 => gameboy.bit(4, R8::L),
+        0x66 => gameboy.bit(4, AddrOf(R16::HL)),
+        0x67 => gameboy.bit(4, R8::A),
+        0x68 => gameboy.bit(5, R8::B),
+        0x69 => gameboy.bit(5, R8::C),
+        0x6A => gameboy.bit(5, R8::D),
+        0x6B => gameboy.bit(5, R8::E),
+        0x6C => gameboy.bit(5, R8::H),
+        0x6D => gameboy.bit(5, R8::L),
+        0x6E => gameboy.bit(5, AddrOf(R16::HL)),
+        0x6F => gameboy.bit(5, R8::A),
+        0x70 => gameboy.bit(6, R8::B),
+        0x71 => gameboy.bit(6, R8::C),
+        0x72 => gameboy.bit(6, R8::D),
+        0x73 => gameboy.bit(6, R8::E),
+        0x74 => gameboy.bit(6, R8::H),
+        0x75 => gameboy.bit(6, R8::L),
+        0x76 => gameboy.bit(6, AddrOf(R16::HL)),
+        0x77 => gameboy.bit(6, R8::A),
+        0x78 => gameboy.bit(7, R8::B),
+        0x79 => gameboy.bit(7, R8::C),
+        0x7A => gameboy.bit(7, R8::D),
+        0x7B => gameboy.bit(7, R8::E),
+        0x7C => gameboy.bit(7, R8::H),
+        0x7D => gameboy.bit(7, R8::L),
+        0x7E => gameboy.bit(7, AddrOf(R16::HL)),
+        0x7F => gameboy.bit(7, R8::A),
+        0x80 => gameboy.res(0, R8::B),
+        0x81 => gameboy.res(0, R8::C),
+        0x82 => gameboy.res(0, R8::D),
+        0x83 => gameboy.res(0, R8::E),
+        0x84 => gameboy.res(0, R8::H),
+        0x85 => gameboy.res(0, R8::L),
+        0x86 => gameboy.res(0, AddrOf(R16::HL)),
+        0x87 => gameboy.res(0, R8::A),
+        0x88 => gameboy.res(1, R8::B),
+        0x89 => gameboy.res(1, R8::C),
+        0x8A => gameboy.res(1, R8::D),
+        0x8B => gameboy.res(1, R8::E),
+        0x8C => gameboy.res(1, R8::H),
+        0x8D => gameboy.res(1, R8::L),
+        0x8E => gameboy.res(1, AddrOf(R16::HL)),
+        0x8F => gameboy.res(1, R8::A),
+        0x90 => gameboy.res(2, R8::B),
+        0x91 => gameboy.res(2, R8::C),
+        0x92 => gameboy.res(2, R8::D),
+        0x93 => gameboy.res(2, R8::E),
+        0x94 => gameboy.res(2, R8::H),
+        0x95 => gameboy.res(2, R8::L),
+        0x96 => gameboy.res(2, AddrOf(R16::HL)),
+        0x97 => gameboy.res(2, R8::A),
+        0x98 => gameboy.res(3, R8::B),
+        0x99 => gameboy.res(3, R8::C),
+        0x9A => gameboy.res(3, R8::D),
+        0x9B => gameboy.res(3, R8::E),
+        0x9C => gameboy.res(3, R8::H),
+        0x9D => gameboy.res(3, R8::L),
+        0x9E => gameboy.res(3, AddrOf(R16::HL)),
+        0x9F => gameboy.res(3, R8::A),
+        0xA0 => gameboy.res(4, R8::B),
+        0xA1 => gameboy.res(4, R8::C),
+        0xA2 => gameboy.res(4, R8::D),
+        0xA3 => gameboy.res(4, R8::E),
+        0xA4 => gameboy.res(4, R8::H),
+        0xA5 => gameboy.res(4, R8::L),
+        0xA6 => gameboy.res(4, AddrOf(R16::HL)),
+        0xA7 => gameboy.res(4, R8::A),
+        0xA8 => gameboy.res(5, R8::B),
+        0xA9 => gameboy.res(5, R8::C),
+        0xAA => gameboy.res(5, R8::D),
+        0xAB => gameboy.res(5, R8::E),
+        0xAC => gameboy.res(5, R8::H),
+        0xAD => gameboy.res(5, R8::L),
+        0xAE => gameboy.res(5, AddrOf(R16::HL)),
+        0xAF => gameboy.res(5, R8::A),
+        0xB0 => gameboy.res(6, R8::B),
+        0xB1 => gameboy.res(6, R8::C),
+        0xB2 => gameboy.res(6, R8::D),
+        0xB3 => gameboy.res(6, R8::E),
+        0xB4 => gameboy.res(6, R8::H),
+        0xB5 => gameboy.res(6, R8::L),
+        0xB6 => gameboy.res(6, AddrOf(R16::HL)),
+        0xB7 => gameboy.res(6, R8::A),
+        0xB8 => gameboy.res(7, R8::B),
+        0xB9 => gameboy.res(7, R8::C),
+        0xBA => gameboy.res(7, R8::D),
+        0xBB => gameboy.res(7, R8::E),
+        0xBC => gameboy.res(7, R8::H),
+        0xBD => gameboy.res(7, R8::L),
+        0xBE => gameboy.res(7, AddrOf(R16::HL)),
+        0xBF => gameboy.res(7, R8::A),
+        0xC0 => gameboy.set(0, R8::B),
+        0xC1 => gameboy.set(0, R8::C),
+        0xC2 => gameboy.set(0, R8::D),
+        0xC3 => gameboy.set(0, R8::E),
+        0xC4 => gameboy.set(0, R8::H),
+        0xC5 => gameboy.set(0, R8::L),
+        0xC6 => gameboy.set(0, AddrOf(R16::HL)),
+        0xC7 => gameboy.set(0, R8::A),
+        0xC8 => gameboy.set(1, R8::B),
+        0xC9 => gameboy.set(1, R8::C),
+        0xCA => gameboy.set(1, R8::D),
+        0xCB => gameboy.set(1, R8::E),
+        0xCC => gameboy.set(1, R8::H),
+        0xCD => gameboy.set(1, R8::L),
+        0xCE => gameboy.set(1, AddrOf(R16::HL)),
+        0xCF => gameboy.set(1, R8::A),
+        0xD0 => gameboy.set(2, R8::B),
+        0xD1 => gameboy.set(2, R8::C),
+        0xD2 => gameboy.set(2, R8::D),
+        0xD3 => gameboy.set(2, R8::E),
+        0xD4 => gameboy.set(2, R8::H),
+        0xD5 => gameboy.set(2, R8::L),
+        0xD6 => gameboy.set(2, AddrOf(R16::HL)),
+        0xD7 => gameboy.set(2, R8::A),
+        0xD8 => gameboy.set(3, R8::B),
+        0xD9 => gameboy.set(3, R8::C),
+        0xDA => gameboy.set(3, R8::D),
+        0xDB => gameboy.set(3, R8::E),
+        0xDC => gameboy.set(3, R8::H),
+        0xDD => gameboy.set(3, R8::L),
+        0xDE => gameboy.set(3, AddrOf(R16::HL)),
+        0xDF => gameboy.set(3, R8::A),
+        0xE0 => gameboy.set(4, R8::B),
+        0xE1 => gameboy.set(4, R8::C),
+        0xE2 => gameboy.set(4, R8::D),
+        0xE3 => gameboy.set(4, R8::E),
+        0xE4 => gameboy.set(4, R8::H),
+        0xE5 => gameboy.set(4, R8::L),
+        0xE6 => gameboy.set(4, AddrOf(R16::HL)),
+        0xE7 => gameboy.set(4, R8::A),
+        0xE8 => gameboy.set(5, R8::B),
+        0xE9 => gameboy.set(5, R8::C),
+        0xEA => gameboy.set(5, R8::D),
+        0xEB => gameboy.set(5, R8::E),
+        0xEC => gameboy.set(5, R8::H),
+        0xED => gameboy.set(5, R8::L),
+        0xEE => gameboy.set(5, AddrOf(R16::HL)),
+        0xEF => gameboy.set(5, R8::A),
+        0xF0 => gameboy.set(6, R8::B),
+        0xF1 => gameboy.set(6, R8::C),
+        0xF2 => gameboy.set(6, R8::D),
+        0xF3 => gameboy.set(6, R8::E),
+        0xF4 => gameboy.set(6, R8::H),
+        0xF5 => gameboy.set(6, R8::L),
+        0xF6 => gameboy.set(6, AddrOf(R16::HL)),
+        0xF7 => gameboy.set(6, R8::A),
+        0xF8 => gameboy.set(7, R8::B),
+        0xF9 => gameboy.set(7, R8::C),
+        0xFA => gameboy.set(7, R8::D),
+        0xFB => gameboy.set(7, R8::E),
+        0xFC => gameboy.set(7, R8::H),
+        0xFD => gameboy.set(7, R8::L),
+        0xFE => gameboy.set(7, AddrOf(R16::HL)),
+        0xFF => gameboy.set(7, R8::A),
+    }
+}
+
 struct Plus<T, U>(T, U);
 
 struct PostDec<T>(T);
@@ -303,11 +567,12 @@ impl AsAddr for u16 {
 
 impl AsAddr for u8 {
     fn into_addr(self) -> u16 {
-        u16::from(self) + 0xff
+        let le = u16::from(self) << 8;
+        le + 0xff_u16.to_le()
     }
 }
 
-trait Integer: num_traits::PrimInt + num_traits::Unsigned {
+trait Integer: num_traits::PrimInt + num_traits::Unsigned + num_traits::WrappingSub {
     const CYCLES: u8;
     const HALF_CARRY_FLAG: Self;
     fn from_carry(carry: Carry) -> Self;
@@ -397,7 +662,7 @@ where
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
         let value = self.0.read(gb);
         self.0
-            .write(gb, value - T::one())
+            .write(gb, value.wrapping_sub(&T::one()))
             .expect("post dec write must not fail");
         value
     }
@@ -444,15 +709,17 @@ impl<T: Copy> mem::Read for Constant<T> {
 
 impl mem::Read for Immediate8 {
     type Out = u8;
+    const CYCLES: u8 = 1;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
-        gb.mmu.read_u8(*gb.cpu.register.pc)
+        gb.mmu.read_u8(*gb.cpu.register.pc + 1)
     }
 }
 
 impl mem::Read for Immediate16 {
     type Out = u16;
+    const CYCLES: u8 = 2;
     fn read(&self, gb: &mut GameBoy) -> Self::Out {
-        gb.mmu.read_u16(*gb.cpu.register.pc)
+        gb.mmu.read_u16(*gb.cpu.register.pc + 1)
     }
 }
 
@@ -536,26 +803,29 @@ impl mem::Read for R16 {
 
 impl mem::Write for R16 {
     type In = u16;
+    const CYCLES: u8 = 1;
+
     fn write(&self, gb: &mut GameBoy, value: Self::In) -> Result<(), Error> {
         use self::R16::*;
-        let reg: &mut u16 = &mut match self {
-            AF => *gb.cpu.register.af,
-            BC => *gb.cpu.register.bc,
-            DE => *gb.cpu.register.de,
-            HL => *gb.cpu.register.hl,
-            SP => *gb.cpu.register.sp,
+        let reg: &mut u16 = match self {
+            AF => gb.cpu.register.af.deref_mut(),
+            BC => gb.cpu.register.bc.deref_mut(),
+            DE => gb.cpu.register.de.deref_mut(),
+            HL => gb.cpu.register.hl.deref_mut(),
+            SP => gb.cpu.register.sp.deref_mut(),
         };
         *reg = value;
         Ok(())
     }
 }
 
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(Debug, FromPrimitive, ToPrimitive)]
 enum Carry {
     Without,
     With,
 }
 
+#[derive(Debug)]
 enum Interrupt {
     Enable,
     Disable,
@@ -576,10 +846,17 @@ trait Instructions {
         F: FnOnce(Num, Num, RegisterF) -> (Num, RegisterF),
         Num: Integer;
 
-    fn jump<Offset, V>(&mut self, _: Flags, _: Offset) -> Self::Output
+    fn jump<Offset>(&mut self, _: Flags, _: Offset) -> Self::Output
     where
-        V: Into<u16>,
-        Offset: mem::Read<Out = V>;
+        Offset: mem::Read<Out = u8>;
+
+    fn jump16<Offset>(&mut self, _: Flags, _: Offset) -> Self::Output
+    where
+        Offset: mem::Read<Out = u16>;
+
+    fn call<R>(&mut self, address: R) -> Self::Output
+    where
+        R: mem::Read<Out = u16>;
 
     fn set_interrupt(&mut self, _: Interrupt) -> Self::Output;
 
@@ -713,9 +990,39 @@ trait Instructions {
     fn push<R>(&mut self, from: R) -> Self::Output
     where
         R: mem::Read<Out = u16>;
+    fn pop<W>(&mut self, to: W) -> Self::Output
+    where
+        W: mem::Write<In = u16>;
     fn nop(&mut self) -> Self::Output;
     fn halt(&mut self) -> Self::Output;
     fn stop(&mut self) -> Self::Output;
+    fn shift_left<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn shift_right<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn shift_right_logical<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn rotate_left<R>(&mut self, register: R, carry: Carry) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn rotate_right<R>(&mut self, register: R, carry: Carry) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn swap<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn bit<R>(&mut self, pos: u8, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn res<R>(&mut self, pos: u8, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
+    fn set<R>(&mut self, pos: u8, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>;
 }
 
 impl Instructions for GameBoy {
@@ -728,7 +1035,9 @@ impl Instructions for GameBoy {
     {
         let value: V = from.read(self);
         to.write(self, value)?;
-        Ok(1)
+        // This logic might be a bit contrived, but if I can prove it by
+        // e.g. testing all combinations, then it can stay.
+        Ok(W::CYCLES + R::CYCLES)
     }
 
     fn binary_op<LHS, RHS, F, Num>(&mut self, lhs: LHS, rhs: RHS, op: F) -> Self::Output
@@ -746,13 +1055,17 @@ impl Instructions for GameBoy {
         Ok(Num::CYCLES)
     }
 
-    fn jump<Offset, V>(&mut self, flags: Flags, offset: Offset) -> Self::Output
+    fn jump<Offset>(&mut self, flags: Flags, offset: Offset) -> Self::Output
     where
-        V: Into<u16>,
-        Offset: mem::Read<Out = V>,
+        Offset: mem::Read<Out = u8>,
     {
         use self::Flags::*;
-        let offset_ = offset.read(self);
+        let offset = offset.read(self);
+        let new_addr = u16::from(offset) | 0xFF00;
+        println!(
+            "Read offset as ${:02X?}, converted to ${:04X?}",
+            offset, new_addr,
+        );
         let f = *(self.cpu.register.f());
         if match flags {
             Always => true,
@@ -765,15 +1078,48 @@ impl Instructions for GameBoy {
             NH => !f[flag::H].as_bool(),
             NC => !f[flag::C].as_bool(),
         } {
-            *self.cpu.register.pc += offset_.into();
-            Ok(3)
-        } else {
-            Ok(2)
+            *self.cpu.register.pc = self.cpu.register.pc.wrapping_add(new_addr);
         }
+        Ok(0)
+    }
+
+    fn jump16<Offset>(&mut self, flags: Flags, offset: Offset) -> Self::Output
+    where
+        Offset: mem::Read<Out = u16>,
+    {
+        use self::Flags::*;
+        let offset = offset.read(self);
+        let f = *(self.cpu.register.f());
+        if match flags {
+            Always => true,
+            Z => f[flag::Z].as_bool(),
+            N => f[flag::N].as_bool(),
+            H => f[flag::H].as_bool(),
+            C => f[flag::C].as_bool(),
+            NZ => !f[flag::Z].as_bool(),
+            NN => !f[flag::N].as_bool(),
+            NH => !f[flag::H].as_bool(),
+            NC => !f[flag::C].as_bool(),
+        } {
+            *self.cpu.register.pc += offset;
+        }
+        Ok(0)
+    }
+
+    fn call<R>(&mut self, address: R) -> Self::Output
+    where
+        R: mem::Read<Out = u16>,
+    {
+        let address = address.read(self);
+        println!("Read address 0x{:04X?} for call", address);
+        self.push(Constant(*self.cpu.register.pc))?;
+        *self.cpu.register.pc = address;
+        Ok(0)
     }
 
     fn set_interrupt(&mut self, _: Interrupt) -> Self::Output {
-        unimplemented!()
+        // TODO: Handle interrupts
+        Ok(1)
     }
 
     fn push<R>(&mut self, from: R) -> Self::Output
@@ -783,8 +1129,19 @@ impl Instructions for GameBoy {
         let from = from.read(self);
         let sp: &mut u16 = &mut self.cpu.register.sp;
         self.mmu.write_u16(*sp, from);
-        *sp += 2;
-        Ok(4)
+        *sp = sp.wrapping_add(2);
+        Ok(1)
+    }
+
+    fn pop<W>(&mut self, to: W) -> Self::Output
+    where
+        W: mem::Write<In = u16>,
+    {
+        let value = self.mmu.read_u16(*self.cpu.register.sp);
+        to.write(self, value)?;
+        let sp: &mut u16 = &mut self.cpu.register.sp;
+        *sp = sp.wrapping_sub(2);
+        Ok(1)
     }
 
     fn nop(&mut self) -> Self::Output {
@@ -796,6 +1153,76 @@ impl Instructions for GameBoy {
     }
 
     fn stop(&mut self) -> Self::Output {
+        unimplemented!()
+    }
+
+    fn shift_left<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        unimplemented!()
+    }
+
+    fn shift_right<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        unimplemented!()
+    }
+
+    fn shift_right_logical<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        unimplemented!()
+    }
+
+    fn rotate_left<R>(&mut self, register: R, carry: Carry) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        unimplemented!()
+    }
+
+    fn rotate_right<R>(&mut self, register: R, carry: Carry) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        unimplemented!()
+    }
+
+    fn swap<R>(&mut self, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        unimplemented!()
+    }
+
+    fn bit<R>(&mut self, pos: u8, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        let register_ = register.read(self);
+        let f = self.cpu.register.f();
+        if register_ & (1 << pos) == 0 {
+            f[flag::Z].set();
+        }
+        f[flag::N].reset();
+        f[flag::H].set();
+        Ok(2)
+    }
+
+    fn res<R>(&mut self, pos: u8, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
+        unimplemented!()
+    }
+
+    fn set<R>(&mut self, pos: u8, register: R) -> Self::Output
+    where
+        R: mem::Read<Out = u8>,
+    {
         unimplemented!()
     }
 }
